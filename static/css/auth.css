@@ -16,6 +16,10 @@
 .auth-message{min-height:28px;margin-top:16px;}
 .auth-message.success{color:var(--teal);}
 .auth-message.error{color:#d64235;}
+.auth-status{display:flex;align-items:center;gap:10px;}
+.auth-user{padding:10px 16px;border-radius:100px;background:rgba(255,255,255,0.12);color:var(--white);font-size:14px;font-weight:700;white-space:nowrap;}
+.auth-logout{padding:10px 16px;border:1px solid rgba(255,255,255,0.28);border-radius:100px;background:transparent;color:var(--white);font:inherit;font-size:14px;font-weight:600;cursor:pointer;transition:all .25s ease;}
+.auth-logout:hover{background:var(--white);color:var(--navy);border-color:var(--white);}
 .auth-subpage-body{min-height:100vh;margin:0;font-family:'Noto Sans KR',sans-serif;background:radial-gradient(circle at top left, rgba(43,179,160,0.16), transparent 28%),radial-gradient(circle at bottom right, rgba(255,107,74,0.16), transparent 24%),var(--cream);}
 .auth-subpage-shell{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:36px 20px;}
 .auth-subpage-grid{width:min(100%,1080px);display:grid;grid-template-columns:1fr 1fr;gap:24px;}
