@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="css/main.css">
     <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap" rel="stylesheet">
     <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
-    
+    <script src="./static/frontEnd/js/chatentry.js"></script>
     <style>
         body { 
             background: radial-gradient(120% 100% at 15% 0%, var(--navy-2) 0%, var(--navy) 55%);
@@ -72,36 +72,6 @@
         <button class="btn-enter" onclick="joinRoom()">화상 회의실 입장하기</button>
     </div>
 
-    <script>
-        // 카메라 프리뷰 활성화
-        async function initPreview() {
-            try {
-                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
-                const video = document.createElement('video');
-                video.srcObject = stream;
-                video.autoplay = true;
-                video.playsInline = true;
-                document.getElementById('preview').innerHTML = '';
-                document.getElementById('preview').appendChild(video);
-            } catch (err) {
-                document.getElementById('preview').innerText = "카메라를 찾을 수 없습니다.";
-            }
-        }
-        initPreview();
 
-        // 입장 처리 및 페이지 이동
-        function joinRoom() {
-            const room = document.getElementById('roomNumber').value.trim();
-            const name = document.getElementById('userName').value.trim();
-
-            if(room && name) {
-                // 로컬 스토리지에 데이터 저장 후 room.html로 이동
-                localStorage.setItem('roomData', JSON.stringify({room, name}));
-                window.location.href = 'room.html';
-            } else {
-                alert("방 번호와 닉네임을 모두 입력해주세요.");
-            }
-        }
-    </script>
 </body>
 </html>

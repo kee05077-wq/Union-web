@@ -11,7 +11,7 @@
     
     <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-
+    <script src="./static/frontEnd/js/room_ui.js"></script>
     <style>
         body { background-color: #0b0b0c; color: var(--white); height: 100vh; margin: 0; font-family: 'Noto Sans KR', sans-serif; overflow: hidden; display: flex; flex-direction: column; }
         
@@ -112,44 +112,6 @@
         <button class="btn-leave" onclick="resetPage()">나가기</button>
     </footer>
 
-    <script src="./static/frontEnd/js/room.js"></script>
-    <script src="./static/frontEnd/js/chats.js"></script>
-    <script src="./static/frontEnd/js/tts.js"></script>
-    <script src="./static/frontEnd/js/handler.js"></script>
-
-    <script>
-        $(document).ready(function() {
-            // 1. 방 정보 로드 및 검증
-            const roomDataStr = localStorage.getItem('roomData');
-            if(!roomDataStr) {
-                alert("비정상적인 접근입니다. 로그인 페이지로 이동합니다.");
-                window.location.href = 'login.html';
-                return;
-            }
-
-            const roomData = JSON.parse(roomDataStr);
-            $('#dynamicTitle').text(`[방 번호: ${roomData.room}] 실시간 수어 화상 번역 룸 (${roomData.name}님)`);
-
-            // 2. 폼 제출 제어 로직 (기존 유지)
-            $('#chatForm').on('submit', function(e) {
-                e.preventDefault(); 
-            });
-
-            $('#userChat').on('keydown', function(e) {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                    e.preventDefault();
-                    if ($(this).val().trim() !== '') {
-                        $('#chatForm').trigger('submit'); 
-                    }
-                }
-            });
-        });
-
-        // 3. 나가기 버튼 작동
-        function resetPage() {
-            localStorage.removeItem('roomData');
-            window.location.href = 'login.html';
-        }
-    </script>
+    
 </body>
 </html>
