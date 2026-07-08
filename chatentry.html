@@ -6,6 +6,7 @@
     <title>Uni-On | 회의실 입장</title>
     <link rel="stylesheet" href="css/main.css">
     <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
     <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
     <script src="./static/frontEnd/js/chatentry.js"></script>
     <style>
@@ -13,37 +14,53 @@
             background: radial-gradient(120% 100% at 15% 0%, var(--navy-2) 0%, var(--navy) 55%);
             color: var(--white); 
             height: 100vh; margin: 0; 
-            display: flex; justify-content: center; align-items: center;
+            display: flex; flex-direction: column;
             font-family: 'Noto Sans KR', sans-serif;
+            overflow: hidden;
         }
         
+        .main-content {
+            flex: 1; display: flex; justify-content: center; align-items: center;
+        }
+
         .login-card { 
             background-color: var(--white);
             width: 440px; padding: 48px 40px; border-radius: 22px; 
             box-shadow: 0 30px 60px rgba(18,22,43,0.3); text-align: center; 
         }
         
-        .login-card .logo-text { 
-            color: var(--navy); font-family: 'Black Han Sans', sans-serif; 
-            font-size: 32px; letter-spacing: 0.02em; margin-bottom: 24px; display: block;
+        #preview-container {
+            position: relative; width: 100%; height: 220px; margin-bottom: 24px;
         }
-        .login-card .logo-text small { color: var(--teal); }
 
         #preview { 
-            width: 100%; height: 220px; background-color: var(--navy-2); 
-            border-radius: 14px; margin-bottom: 24px; display: flex; 
+            width: 100%; height: 100%; background-color: var(--navy-2); 
+            border-radius: 14px; display: flex; 
             justify-content: center; align-items: center; color: var(--slate); 
             overflow: hidden; font-weight: 500; font-size: 14px;
         }
         #preview video { width: 100%; height: 100%; object-fit: cover; }
         
+        /* 프리뷰 제어 버튼 */
+        .preview-controls {
+            position: absolute; bottom: 12px; left: 50%; transform: translateX(-50%);
+            display: flex; gap: 12px; background: rgba(0,0,0,0.5); padding: 8px 16px;
+            border-radius: 100px; backdrop-filter: blur(4px);
+        }
+        .preview-controls button {
+            background: none; border: none; color: #fff; font-size: 20px;
+            cursor: pointer; width: 36px; height: 36px; border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            transition: all 0.2s;
+        }
+        .preview-controls button.off { background: var(--alert); }
+
         .input-group { margin-bottom: 20px; text-align: left; }
         .input-group label { font-size: 13px; color: var(--slate); margin-bottom: 8px; display: block; font-weight: 700; }
         .input-group input { 
             width: 100%; padding: 15px; border: 1px solid rgba(18,22,43,0.1); 
             background: var(--cream); color: var(--ink); border-radius: 12px; 
             box-sizing: border-box; font-size: 15px; font-weight: 500;
-            transition: all 0.2s ease;
         }
         .input-group input:focus { outline: none; border-color: var(--teal); background: #fff; box-shadow: 0 0 0 4px rgba(43, 179, 160, 0.1); }
         
@@ -51,26 +68,50 @@
             width: 100%; padding: 16px; background-color: var(--coral); 
             color: var(--white); border: none; border-radius: 100px; 
             font-weight: 700; font-size: 16px; cursor: pointer; margin-top: 16px; 
-            transition: transform 0.22s ease, background 0.22s ease; 
         }
-        .btn-enter:hover { background-color: #ff805f; transform: translateY(-2px); }
     </style>
 </head>
 <body>
 
-    <div class="login-card">
-        <span class="logo-text">UNION<small>TEAM ON</small></span>
-        <div id="preview">카메라 로딩 중...</div>
-        <div class="input-group">
-            <label>방 번호</label>
-            <input type="text" id="roomNumber" placeholder="입장할 방 번호를 입력하세요">
+    <!-- 공통 헤더 적용 -->
+    <header>
+        <a href="#" class="logo">
+            <span class="logo-mark"><span></span><span></span></span>
+            <span class="logo-text">UNION<small>TEAM ON</small></span>
+        </a>
+        <div class="nav-right">
+            <nav class="nav-links">
+                <ul>
+                    <li><a href="chatentry.html">화상강의</a></li>
+                    <li><a href="#service-translate">실시간 번역기</a></li>
+                    <li><a href="#service-sign">교육</a></li>
+                    <li><a href="#service-emergency" class="nav-alert"><span class="nav-alert-dot"></span>긴급신고</a></li>
+                </ul>
+            </nav>
+            <a href="#" class="btn-auth">로그인 / 회원가입</a>
         </div>
-        <div class="input-group">
-            <label>닉네임</label>
-            <input type="text" id="userName" placeholder="사용할 닉네임을 입력하세요">
+    </header>
+
+    <main class="main-content">
+        <div class="login-card">
+            <div id="preview-container">
+                <div id="preview">카메라 로딩 중...</div>
+                <div class="preview-controls">
+                    <button type="button" id="btn-audio" onclick="toggleAudio()"><i class="bi bi-mic-fill"></i></button>
+                    <button type="button" id="btn-video" onclick="toggleVideo()"><i class="bi bi-camera-video-fill"></i></button>
+                </div>
+            </div>
+            <div class="input-group">
+                <label>방 번호</label>
+                <input type="text" id="roomNumber" placeholder="입장할 방 번호를 입력하세요">
+            </div>
+            <div class="input-group">
+                <label>닉네임</label>
+                <input type="text" id="userName" placeholder="사용할 닉네임을 입력하세요">
+            </div>
+            <button class="btn-enter" onclick="joinRoom()">화상 회의실 입장하기</button>
         </div>
-        <button class="btn-enter" onclick="joinRoom()">화상 회의실 입장하기</button>
-    </div>
+    </main>
 
 
 </body>
