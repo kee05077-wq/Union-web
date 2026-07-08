@@ -7,6 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="static/css/main.css">
+<link rel="stylesheet" href="static/css/auth.css">
 <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap" rel="stylesheet">
 </head>
 <body>
@@ -254,6 +255,31 @@
   <span>ⓒ 2026 Team ON. All rights reserved.</span>
 </footer>
 
+<div class="auth-modal-backdrop auth-hidden" id="authModal">
+  <div class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
+    <button class="auth-close" id="closeAuthModal" type="button" aria-label="닫기">×</button>
+    <span class="eyebrow">LOGIN ACCESS</span>
+    <h2 id="authModalTitle">로그인</h2>
+    <p class="auth-copy">가입된 아이디와 비밀번호로 로그인해 주세요.</p>
+    <form id="loginForm" class="auth-form">
+      <label>
+        <span>아이디</span>
+        <input type="text" id="loginUsername" placeholder="아이디를 입력하세요" required>
+      </label>
+      <label>
+        <span>비밀번호</span>
+        <input type="password" id="loginPassword" placeholder="비밀번호를 입력하세요" required>
+      </label>
+      <button class="btn-primary auth-full" type="submit">로그인</button>
+    </form>
+    <div class="auth-links">
+      <button type="button" class="auth-text-link" id="openRecoverWindow">아이디 찾기 / 비밀번호 찾기</button>
+      <button type="button" class="auth-text-link auth-strong" id="openSignupWindow">회원가입</button>
+    </div>
+    <p class="auth-message" id="loginMessage" aria-live="polite"></p>
+  </div>
+</div>
+
 <script>
   const items = document.querySelectorAll('.reveal');
   const io = new IntersectionObserver((entries)=>{
@@ -266,6 +292,7 @@
   }, {threshold:0.15});
   items.forEach(el=>io.observe(el));
 </script>
+<script src="static/js/auth.js"></script>
 
 </body>
 </html>

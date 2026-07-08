@@ -6,6 +6,7 @@
     <title>Uni-On | 회의실 입장</title>
     <!-- 경로 변경됨 -->
     <link rel="stylesheet" href="static/css/main.css">
+    <link rel="stylesheet" href="static/css/auth.css">
     <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
     <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
@@ -81,6 +82,31 @@
     </main>
 
     <!-- 경로 변경됨 -->
+    <div class="auth-modal-backdrop auth-hidden" id="authModal">
+        <div class="auth-modal" role="dialog" aria-modal="true" aria-labelledby="authModalTitle">
+            <button class="auth-close" id="closeAuthModal" type="button" aria-label="닫기">×</button>
+            <span class="eyebrow">LOGIN ACCESS</span>
+            <h2 id="authModalTitle">로그인</h2>
+            <p class="auth-copy">가입된 아이디와 비밀번호로 로그인해 주세요.</p>
+            <form id="loginForm" class="auth-form">
+                <label>
+                    <span>아이디</span>
+                    <input type="text" id="loginUsername" placeholder="아이디를 입력하세요" required>
+                </label>
+                <label>
+                    <span>비밀번호</span>
+                    <input type="password" id="loginPassword" placeholder="비밀번호를 입력하세요" required>
+                </label>
+                <button class="btn-primary auth-full" type="submit">로그인</button>
+            </form>
+            <div class="auth-links">
+                <button type="button" class="auth-text-link" id="openRecoverWindow">아이디 찾기 / 비밀번호 찾기</button>
+                <button type="button" class="auth-text-link auth-strong" id="openSignupWindow">회원가입</button>
+            </div>
+            <p class="auth-message" id="loginMessage" aria-live="polite"></p>
+        </div>
+    </div>
     <script src="static/js/chatentry.js"></script>
+    <script src="static/js/auth.js"></script>
 </body>
 </html>
