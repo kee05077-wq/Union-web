@@ -12,7 +12,7 @@ const openSignupButton = document.getElementById("openSignupWindow");
 const authStorageKey = "unionAuthUser";
 
 function getStoredUser() {
-  const raw = localStorage.getItem(authStorageKey);
+  const raw = sessionStorage.getItem(authStorageKey);
   if (!raw) {
     return null;
   }
@@ -20,17 +20,17 @@ function getStoredUser() {
   try {
     return JSON.parse(raw);
   } catch (error) {
-    localStorage.removeItem(authStorageKey);
+    sessionStorage.removeItem(authStorageKey);
     return null;
   }
 }
 
 function setStoredUser(profile) {
-  localStorage.setItem(authStorageKey, JSON.stringify(profile));
+  sessionStorage.setItem(authStorageKey, JSON.stringify(profile));
 }
 
 function clearStoredUser() {
-  localStorage.removeItem(authStorageKey);
+  sessionStorage.removeItem(authStorageKey);
 }
 
 function createStatusBox() {
@@ -112,12 +112,6 @@ authButtons.forEach((button) => {
 });
 
 renderAuthState();
-
-window.addEventListener("storage", (event) => {
-  if (event.key === authStorageKey) {
-    renderAuthState();
-  }
-});
 
 if (authClose) {
   authClose.addEventListener("click", closeAuthModal);
