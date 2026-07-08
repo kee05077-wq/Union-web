@@ -17,6 +17,7 @@
     --ink:#1B1B1F;
     --slate:#6B7280;
     --white:#FCFAF7;
+    --alert:#E2483F;
   }
 
   *{margin:0;padding:0;box-sizing:border-box;}
@@ -53,6 +54,9 @@
   nav a:hover{opacity:1;}
   nav a::after{content:""; position:absolute; left:0; bottom:-2px; width:0%; height:2px; background:var(--coral); transition:width 0.25s ease;}
   nav a:hover::after{width:100%;}
+  .nav-alert{display:inline-flex; align-items:center; gap:7px; color:var(--white) !important; opacity:1 !important;}
+  .nav-alert-dot{width:7px; height:7px; border-radius:50%; background:var(--alert); box-shadow:0 0 0 rgba(226,72,63,0.5); animation:nav-pulse 1.8s ease-out infinite;}
+  @keyframes nav-pulse{0%{box-shadow:0 0 0 0 rgba(226,72,63,0.5);} 70%{box-shadow:0 0 0 6px rgba(226,72,63,0);} 100%{box-shadow:0 0 0 0 rgba(226,72,63,0);}}
   .btn-auth{padding:10px 22px; border:1px solid rgba(255,255,255,0.35); border-radius:100px; color:var(--white); font-size:14px; font-weight:500; white-space:nowrap; transition:all 0.25s ease;}
   .btn-auth:hover{background:var(--white); color:var(--navy); border-color:var(--white);}
   .nav-right{display:flex; align-items:center; gap:36px;}
@@ -139,6 +143,7 @@
   .feature.coral .feature-num{color:var(--coral);}
   .feature.teal .feature-num{color:var(--teal);}
   .feature.navy .feature-num{color:var(--navy);}
+  .feature.alert .feature-num{color:var(--alert);}
 
   .feature-text h3{font-size:clamp(22px,2.4vw,30px); font-weight:800; color:var(--ink); line-height:1.4; margin-bottom:18px;}
   .feature-text p{font-size:15.5px; line-height:1.85; color:var(--slate); margin-bottom:26px; max-width:440px;}
@@ -149,6 +154,7 @@
   .feature.coral .feature-list svg{stroke:var(--coral);}
   .feature.teal .feature-list svg{stroke:var(--teal);}
   .feature.navy .feature-list svg{stroke:var(--navy);}
+  .feature.alert .feature-list svg{stroke:var(--alert);}
 
   .card-link{display:inline-flex; align-items:center; gap:6px; font-size:14.5px; font-weight:700;}
   .card-link svg{transition:transform 0.22s ease;}
@@ -156,6 +162,7 @@
   .feature.coral .card-link{color:var(--coral);}
   .feature.teal .card-link{color:var(--teal);}
   .feature.navy .card-link{color:var(--navy);}
+  .feature.alert .card-link{color:var(--alert);}
 
   /* mock frame shared */
   .mock-frame{
@@ -195,6 +202,24 @@
   .dots{display:flex; justify-content:center; gap:8px;}
   .dots span{width:26px; height:6px; border-radius:4px; background:rgba(18,22,43,0.1);}
   .dots span.done{background:var(--navy);}
+
+  /* mockup 4: 긴급신고 */
+  .scan-box{position:relative; background:var(--navy-2); border-radius:14px; height:150px; display:flex; align-items:center; justify-content:center; overflow:hidden;}
+  .scan-corner{position:absolute; width:20px; height:20px; border:2.5px solid var(--alert);}
+  .scan-corner.tl{top:10px; left:10px; border-right:none; border-bottom:none; border-radius:4px 0 0 0;}
+  .scan-corner.tr{top:10px; right:10px; border-left:none; border-bottom:none; border-radius:0 4px 0 0;}
+  .scan-corner.bl{bottom:10px; left:10px; border-right:none; border-top:none; border-radius:0 0 0 4px;}
+  .scan-corner.br{bottom:10px; right:10px; border-left:none; border-top:none; border-radius:0 0 4px 0;}
+  .scan-box svg{width:56px; height:56px;}
+  .scan-box svg rect{fill:rgba(255,255,255,0.85);}
+  .scan-label{position:absolute; top:10px; left:38px; display:flex; align-items:center; gap:6px; font-size:10px; color:#fff; font-weight:700; letter-spacing:0.03em;}
+  .rec-dot{width:7px; height:7px; border-radius:50%; background:var(--alert); animation:pulse-dot 1.2s ease-in-out infinite;}
+  @keyframes pulse-dot{0%,100%{opacity:1; transform:scale(1);} 50%{opacity:0.4; transform:scale(0.8);}}
+  .sos-row{display:flex; gap:10px; margin-top:16px;}
+  .sos-btn{flex:1; background:var(--alert); color:#fff; font-size:12.5px; font-weight:700; text-align:center; padding:12px 8px; border-radius:10px; display:flex; align-items:center; justify-content:center; gap:6px; position:relative; overflow:hidden;}
+  .sos-btn .ring{position:absolute; inset:0; border-radius:10px; border:2px solid rgba(255,255,255,0.5); animation:ring-pulse 1.6s ease-out infinite;}
+  @keyframes ring-pulse{0%{opacity:0.8; transform:scale(1);} 100%{opacity:0; transform:scale(1.15);}}
+  .loc-chip{flex:1; background:rgba(255,255,255,0.06); border:1px solid rgba(255,255,255,0.12); color:rgba(255,255,255,0.85); font-size:11.5px; font-weight:600; text-align:center; padding:12px 8px; border-radius:10px; display:flex; align-items:center; justify-content:center; gap:6px;}
 
   /* ---------- FOOTER ---------- */
   footer{background:var(--navy); color:rgba(252,250,247,0.6); padding:36px 48px; display:flex; align-items:center; justify-content:space-between; font-size:13px;}
@@ -237,6 +262,7 @@
         <li><a href="#service-lecture">화상강의</a></li>
         <li><a href="#service-translate">실시간 번역기</a></li>
         <li><a href="#service-sign">교육</a></li>
+        <li><a href="#service-emergency" class="nav-alert"><span class="nav-alert-dot"></span>긴급신고</a></li>
       </ul>
     </nav>
     <a href="#" class="btn-auth">로그인 / 회원가입</a>
@@ -285,7 +311,7 @@
 
 <section class="features-head reveal">
   <span class="eyebrow">HOW UNION WORKS</span>
-  <h2>세 가지 기능으로, 하나의 목표를</h2>
+  <h2>네 가지 기능으로, 하나의 목표를</h2>
 </section>
 
 <!-- 01 화상강의 -->
@@ -396,6 +422,51 @@
           <h4>"안녕하세요"</h4>
           <div class="dots">
             <span class="done"></span><span class="done"></span><span></span><span></span><span></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 04 긴급신고 -->
+<section class="feature alert reverse" id="service-emergency">
+  <div class="feature-inner">
+    <div class="feature-text reveal">
+      <span class="feature-num">04 · 긴급신고</span>
+      <h3>말이 없어도, 도움은 전해집니다</h3>
+      <p>카메라 앞에서 수어로 손짓만 하면 AI가 이를 인식해 112·119에 신고 문구와 위치 정보를 자동으로 전송합니다. 목소리를 낼 수 없는 순간에도, 도움을 놓치지 않도록 만들었습니다.</p>
+      <ul class="feature-list">
+        <li><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke-width="1.8"><path d="M4 9l3 3 7-7"/></svg>카메라 기반 수어 동작 실시간 인식</li>
+        <li><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke-width="1.8"><path d="M4 9l3 3 7-7"/></svg>신고 문구 자동 작성 &amp; 112·119 자동 연결</li>
+        <li><svg width="18" height="18" viewBox="0 0 18 18" fill="none" stroke-width="1.8"><path d="M4 9l3 3 7-7"/></svg>현재 위치 자동 첨부</li>
+      </ul>
+      <a href="#" class="card-link">바로가기
+        <svg width="16" height="16" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.8"><path d="M3 8h10M9 4l4 4-4 4"/></svg>
+      </a>
+    </div>
+    <div class="feature-visual reveal">
+      <div class="mock-frame">
+        <div class="scan-box">
+          <div class="scan-corner tl"></div>
+          <div class="scan-corner tr"></div>
+          <div class="scan-corner bl"></div>
+          <div class="scan-corner br"></div>
+          <span class="scan-label"><span class="rec-dot"></span>수어 인식 중...</span>
+          <svg viewBox="0 0 60 60" fill="none">
+            <rect x="21" y="24" width="18" height="24" rx="7"/>
+            <rect x="12" y="20" width="7" height="20" rx="3.5" transform="rotate(-8 15 30)"/>
+            <rect x="19" y="10" width="7" height="24" rx="3.5"/>
+            <rect x="27" y="6" width="7" height="28" rx="3.5"/>
+            <rect x="35" y="10" width="7" height="24" rx="3.5"/>
+          </svg>
+        </div>
+        <div class="mock-caption">인식된 신고 문구 · "도와주세요, 응급 상황이에요"</div>
+        <div class="sos-row">
+          <div class="sos-btn"><span class="ring"></span>112 자동연결</div>
+          <div class="loc-chip">
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M7 13s5-4.5 5-8a5 5 0 10-10 0c0 3.5 5 8 5 8z"/><circle cx="7" cy="5" r="1.6"/></svg>
+            위치 전송됨
           </div>
         </div>
       </div>
