@@ -42,7 +42,8 @@ function joinRoom() {
     const name = document.getElementById('userName').value.trim();
     if(room && name) {
         localStorage.setItem('roomData', JSON.stringify({room, name, isAudioOn, isVideoOn}));
-        window.location.href = 'room.html';
+        // 경로 변경됨
+        window.location.href = '/room.html';
     } else {
         alert("방 번호와 닉네임을 모두 입력해주세요.");
     }

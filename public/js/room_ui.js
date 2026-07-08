@@ -4,7 +4,7 @@ $(document).ready(function() {
     const roomDataStr = localStorage.getItem('roomData');
     if(!roomDataStr) {
         alert("비정상적인 접근입니다.");
-        window.location.href = 'chatentry.html';
+        window.location.href = '/chatentry.html';
         return;
     }
 
@@ -104,5 +104,5 @@ function resetPage() {
     if(roomStream) {
         roomStream.getTracks().forEach(track => track.stop());
     }
-    window.location.href = 'chatentry.html';
+    window.location.href = '/chatentry.html';
 }
