@@ -1,4 +1,8 @@
-const authButtons = document.querySelectorAll(".btn-auth");
+const authButtons = Array.from(document.querySelectorAll(".btn-auth"));
+const authEntries = authButtons.map((button) => ({
+  button,
+  parent: button.parentElement
+}));
 const authModal = document.getElementById("authModal");
 const authClose = document.getElementById("closeAuthModal");
 const loginForm = document.getElementById("loginForm");
@@ -29,11 +33,27 @@ function clearStoredUser() {
   localStorage.removeItem(authStorageKey);
 }
 
+function createStatusBox() {
+  const statusBox = document.createElement("div");
+  statusBox.className = "auth-status";
+
+  const userName = document.createElement("span");
+  userName.className = "auth-user";
+
+  const logoutButton = document.createElement("button");
+  logoutButton.type = "button";
+  logoutButton.className = "auth-logout";
+  logoutButton.textContent = "\uB85C\uADF8\uC544\uC6C3";
+
+  statusBox.appendChild(userName);
+  statusBox.appendChild(logoutButton);
+  return statusBox;
+}
+
 function renderAuthState() {
   const user = getStoredUser();
 
-  authButtons.forEach((button) => {
-    const parent = button.parentElement;
+  authEntries.forEach(({ button, parent }) => {
     if (!parent) {
       return;
     }
@@ -42,20 +62,7 @@ function renderAuthState() {
 
     if (user) {
       if (!statusBox) {
-        statusBox = document.createElement("div");
-        statusBox.className = "auth-status";
-
-        const userName = document.createElement("span");
-        userName.className = "auth-user";
-
-        const logoutButton = document.createElement("button");
-        logoutButton.type = "button";
-        logoutButton.className = "auth-logout";
-        logoutButton.textContent = "\uB85C\uADF8\uC544\uC6C3";
-
-        statusBox.appendChild(userName);
-        statusBox.appendChild(logoutButton);
-        parent.replaceChild(statusBox, button);
+        statusBox = createStatusBox();
       }
 
       statusBox.querySelector(".auth-user").textContent = `${user.name}\uB2D8`;
@@ -64,8 +71,16 @@ function renderAuthState() {
         closeAuthModal();
         renderAuthState();
       };
+
+      if (parent.contains(button)) {
+        parent.replaceChild(statusBox, button);
+      } else if (!parent.contains(statusBox)) {
+        parent.appendChild(statusBox);
+      }
     } else if (statusBox) {
       parent.replaceChild(button, statusBox);
+    } else if (!parent.contains(button)) {
+      parent.appendChild(button);
     }
   });
 }
