@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Uni-On | 회의실 입장</title>
+    <link rel="stylesheet" href="css/main.css">
+    <link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+    <script src="https://code.jquery.com/jquery-1.12.4.min.js"></script>
+    
+    <style>
+        body { 
+            background: radial-gradient(120% 100% at 15% 0%, var(--navy-2) 0%, var(--navy) 55%);
+            color: var(--white); 
+            height: 100vh; margin: 0; 
+            display: flex; justify-content: center; align-items: center;
+            font-family: 'Noto Sans KR', sans-serif;
+        }
+        
+        .login-card { 
+            background-color: var(--white);
+            width: 440px; padding: 48px 40px; border-radius: 22px; 
+            box-shadow: 0 30px 60px rgba(18,22,43,0.3); text-align: center; 
+        }
+        
+        .login-card .logo-text { 
+            color: var(--navy); font-family: 'Black Han Sans', sans-serif; 
+            font-size: 32px; letter-spacing: 0.02em; margin-bottom: 24px; display: block;
+        }
+        .login-card .logo-text small { color: var(--teal); }
+
+        #preview { 
+            width: 100%; height: 220px; background-color: var(--navy-2); 
+            border-radius: 14px; margin-bottom: 24px; display: flex; 
+            justify-content: center; align-items: center; color: var(--slate); 
+            overflow: hidden; font-weight: 500; font-size: 14px;
+        }
+        #preview video { width: 100%; height: 100%; object-fit: cover; }
+        
+        .input-group { margin-bottom: 20px; text-align: left; }
+        .input-group label { font-size: 13px; color: var(--slate); margin-bottom: 8px; display: block; font-weight: 700; }
+        .input-group input { 
+            width: 100%; padding: 15px; border: 1px solid rgba(18,22,43,0.1); 
+            background: var(--cream); color: var(--ink); border-radius: 12px; 
+            box-sizing: border-box; font-size: 15px; font-weight: 500;
+            transition: all 0.2s ease;
+        }
+        .input-group input:focus { outline: none; border-color: var(--teal); background: #fff; box-shadow: 0 0 0 4px rgba(43, 179, 160, 0.1); }
+        
+        .btn-enter { 
+            width: 100%; padding: 16px; background-color: var(--coral); 
+            color: var(--white); border: none; border-radius: 100px; 
+            font-weight: 700; font-size: 16px; cursor: pointer; margin-top: 16px; 
+            transition: transform 0.22s ease, background 0.22s ease; 
+        }
+        .btn-enter:hover { background-color: #ff805f; transform: translateY(-2px); }
+    </style>
+</head>
+<body>
+
+    <div class="login-card">
+        <span class="logo-text">UNION<small>TEAM ON</small></span>
+        <div id="preview">카메라 로딩 중...</div>
+        <div class="input-group">
+            <label>방 번호</label>
+            <input type="text" id="roomNumber" placeholder="입장할 방 번호를 입력하세요">
+        </div>
+        <div class="input-group">
+            <label>닉네임</label>
+            <input type="text" id="userName" placeholder="사용할 닉네임을 입력하세요">
+        </div>
+        <button class="btn-enter" onclick="joinRoom()">화상 회의실 입장하기</button>
+    </div>
+
+    <script>
+        // 카메라 프리뷰 활성화
+        async function initPreview() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: false });
+                const video = document.createElement('video');
+                video.srcObject = stream;
+                video.autoplay = true;
+                video.playsInline = true;
+                document.getElementById('preview').innerHTML = '';
+                document.getElementById('preview').appendChild(video);
+            } catch (err) {
+                document.getElementById('preview').innerText = "카메라를 찾을 수 없습니다.";
+            }
+        }
+        initPreview();
+
+        // 입장 처리 및 페이지 이동
+        function joinRoom() {
+            const room = document.getElementById('roomNumber').value.trim();
+            const name = document.getElementById('userName').value.trim();
+
+            if(room && name) {
+                // 로컬 스토리지에 데이터 저장 후 room.html로 이동
+                localStorage.setItem('roomData', JSON.stringify({room, name}));
+                window.location.href = 'room.html';
+            } else {
+                alert("방 번호와 닉네임을 모두 입력해주세요.");
+            }
+        }
+    </script>
+</body>
+</html>
