@@ -1,4 +1,14 @@
 let roomStream;
+let peerConnection;
+let captureInterval;
+
+let isMySignOn = true;    
+let isViewSignOn = true;  
+
+const socket = io();
+const iceServers = {
+    'iceServers': [{ 'urls': 'stun:stun.l.google.com:19302' }]
+};
 
 $(document).ready(function() {
     const roomDataStr = localStorage.getItem('roomData');
@@ -11,98 +21,165 @@ $(document).ready(function() {
     const roomData = JSON.parse(roomDataStr);
     $('#dynamicTitle').text(`[방 번호: ${roomData.room}] ${roomData.name}님`);
 
-    // 1. 카메라 연동 및 초기 설정 (입장 전 설정값 반영)
     async function startRoomCamera() {
         try {
             roomStream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-            const videoEl = document.getElementById('myFace');
-            videoEl.srcObject = roomStream;
-            videoEl.muted = true; // 본인 마이크 하울링 방지
-
-            // 입장 전 설정한 오디오/비디오 상태 적용
+            
+            const myFaceEl = document.getElementById('myFace');
+            myFaceEl.srcObject = roomStream;
+            // ⚠️ 자바스크립트 레벨에서 거울 모드 2차 강제 주입
+            myFaceEl.style.transform = "scaleX(-1)"; 
+            
             if(roomData.isAudioOn === false) $('#myAudioStat').click();
             if(roomData.isVideoOn === false) $('#myVideoStat').click();
+            
+            socket.emit('join_room', { room: roomData.room, name: roomData.name });
+            startSignCapture();
         } catch (e) {
-            console.error("카메라를 불러올 수 없습니다.", e);
-            $('#subtitleText').text("카메라 연결 실패");
+            console.error("카메라 연결 실패", e);
         }
     }
     startRoomCamera();
 
-    // 2. 하단 컨트롤러 토글 로직
-    $('#myAudioStat').click(function() {
-        if(roomStream) {
-            const track = roomStream.getAudioTracks()[0];
-            track.enabled = !track.enabled;
-            $(this).toggleClass('active off');
-            $(this).find('i').attr('class', track.enabled ? 'bi bi-mic-fill' : 'bi bi-mic-mute-fill');
-            $(this).find('span').text(track.enabled ? '음소거' : '음소거 해제');
-        }
-    });
+    function createPeerConnection() {
+        peerConnection = new RTCPeerConnection(iceServers);
+        roomStream.getTracks().forEach(track => peerConnection.addTrack(track, roomStream));
 
-    $('#myVideoStat').click(function() {
-        if(roomStream) {
-            const track = roomStream.getVideoTracks()[0];
-            track.enabled = !track.enabled;
-            $(this).toggleClass('active off');
-            $(this).find('i').attr('class', track.enabled ? 'bi bi-camera-video-fill' : 'bi bi-camera-video-off-fill');
-            $(this).find('span').text(track.enabled ? '비디오' : '비디오 켜기');
-        }
-    });
+        peerConnection.ontrack = (event) => {
+            const remoteVideo = document.getElementById('remoteFace');
+            if (remoteVideo.srcObject !== event.streams[0]) {
+                remoteVideo.srcObject = event.streams[0];
+            }
+        };
 
-    $('#RC_sign_toggle').click(function() {
-        $(this).toggleClass('active off');
-        const isOn = $(this).hasClass('active');
-        $(this).find('span').text(isOn ? '수어 인식 ON' : '수어 인식 OFF');
-        $('#subtitleText').text(isOn ? 'AI 수어 인식 대기 중...' : '수어 인식 기능이 꺼졌습니다.');
-    });
-
-    // 3. 실시간 채팅 UI 연동
-    function appendMyMessage(text) {
-        const msgHtml = `<div class="chat-bubble me">${text.replace(/\n/g, '<br>')}</div>`;
-        $('#chatBox').append(msgHtml);
-        $('#chatBox').scrollTop($('#chatBox')[0].scrollHeight);
+        peerConnection.onicecandidate = (event) => {
+            if (event.candidate) {
+                socket.emit('webrtc_ice', { room: roomData.room, candidate: event.candidate });
+            }
+        };
     }
+
+    socket.on('user_joined', async (data) => {
+        createPeerConnection();
+        const offer = await peerConnection.createOffer();
+        await peerConnection.setLocalDescription(offer);
+        socket.emit('webrtc_offer', { room: roomData.room, sdp: offer });
+    });
+
+    socket.on('webrtc_offer', async (data) => {
+        createPeerConnection();
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.sdp));
+        const answer = await peerConnection.createAnswer();
+        await peerConnection.setLocalDescription(answer);
+        socket.emit('webrtc_answer', { room: roomData.room, sdp: answer });
+    });
+
+    socket.on('webrtc_answer', async (data) => {
+        await peerConnection.setRemoteDescription(new RTCSessionDescription(data.sdp));
+    });
+
+    socket.on('webrtc_ice', async (data) => {
+        if (peerConnection) {
+            await peerConnection.addIceCandidate(new RTCIceCandidate(data.candidate));
+        }
+    });
+
+    function startSignCapture() {
+        const videoEl = document.getElementById('myFace');
+        const canvas = document.getElementById('hiddenCanvas');
+        const context = canvas.getContext('2d');
+
+        captureInterval = setInterval(() => {
+            if (isMySignOn && roomStream.getVideoTracks()[0].enabled) {
+                context.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
+                const frameData = canvas.toDataURL('image/jpeg', 0.7); 
+                socket.emit('sign_frame', { room: roomData.room, name: roomData.name, image: frameData });
+            }
+        }, 200); 
+    }
+
+    // ⚠️ 수정: 빈 텍스트가 날아오면 박스 숨김 처리
+    socket.on('sign_progress', function(data) {
+        if (isMySignOn) {
+            if (data.text === '') {
+                $('#mySignPreview').hide();
+            } else {
+                $('#mySignPreview').show().text(data.text);
+            }
+        }
+    });
+
+    socket.on('sign_result', function(data) {
+        if (data.name === roomData.name) {
+            $('#mySignPreview').hide().text('');
+        }
+
+        if (isViewSignOn) {
+            $('#subtitleText').show().text(`[${data.name}] ${data.text}`);
+            clearTimeout(window.subtitleTimer);
+            window.subtitleTimer = setTimeout(() => {
+                $('#subtitleText').fadeOut();
+            }, 4000);
+        }
+    });
+
+    $('#toggleMySign').click(function() {
+        $(this).toggleClass('active off');
+        isMySignOn = $(this).hasClass('active');
+        $(this).find('span').text(isMySignOn ? '내 수어 전송 ON' : '내 수어 전송 OFF');
+        if(!isMySignOn) $('#mySignPreview').hide();
+    });
+
+    $('#toggleViewSign').click(function() {
+        $(this).toggleClass('active off');
+        isViewSignOn = $(this).hasClass('active');
+        $(this).find('span').text(isViewSignOn ? '자막 켜짐' : '자막 꺼짐');
+        if(!isViewSignOn) $('#subtitleText').hide();
+    });
 
     $('#chatForm').on('submit', function(e) {
         e.preventDefault(); 
         const msg = $('#userChat').val().trim();
         if (msg !== '') {
-            appendMyMessage(msg);
+            socket.emit('send_message', { room: roomData.room, name: roomData.name, msg: msg });
             $('#userChat').val('');
         }
     });
 
-    $('#userChat').on('keydown', function(e) {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
-            $('#chatForm').trigger('submit');
+    socket.on('receive_message', function(data) {
+        if($('#chatBox .chat-bubble').length === 1 && $('#chatBox .chat-bubble').css('background-color') === 'transparent') {
+            $('#chatBox').html('');
         }
+        
+        const isMe = (data.name === roomData.name);
+        const alignClass = isMe ? 'me' : 'other';
+        const nameTag = isMe ? '' : `<div style="font-size:11px; margin-bottom:4px; opacity:0.7;">${data.name}</div>`;
+        const msgHtml = `<div class="chat-bubble ${alignClass}">${nameTag}${data.msg.replace(/\n/g, '<br>')}</div>`;
+        
+        $('#chatBox').append(msgHtml);
+        $('#chatBox').scrollTop($('#chatBox')[0].scrollHeight);
     });
 
-    // 4. 파일 업로드 로직
-    $('#fileUpload').on('change', function(e) {
-        const file = e.target.files[0];
-        if(file) {
-            const fileHtml = `
-                <div class="chat-bubble me" style="display:flex; align-items:center; gap:8px;">
-                    <i class="bi bi-file-earmark-text-fill" style="font-size:24px;"></i>
-                    <div>
-                        <div style="font-weight:700;">${file.name}</div>
-                        <div style="font-size:11px; opacity:0.8;">전송 완료</div>
-                    </div>
-                </div>`;
-            $('#chatBox').append(fileHtml);
-            $('#chatBox').scrollTop($('#chatBox')[0].scrollHeight);
-            $(this).val(''); // 초기화
-        }
+    $('#myAudioStat').click(function() {
+        const track = roomStream.getAudioTracks()[0];
+        track.enabled = !track.enabled;
+        $(this).toggleClass('active off');
+        $(this).find('i').attr('class', track.enabled ? 'bi bi-mic-fill' : 'bi bi-mic-mute-fill');
+        $(this).find('span').text(track.enabled ? '음소거' : '음소거 해제');
+    });
+
+    $('#myVideoStat').click(function() {
+        const track = roomStream.getVideoTracks()[0];
+        track.enabled = !track.enabled;
+        $(this).toggleClass('active off');
+        $(this).find('i').attr('class', track.enabled ? 'bi bi-camera-video-fill' : 'bi bi-camera-video-off-fill');
+        $(this).find('span').text(track.enabled ? '비디오' : '비디오 켜기');
     });
 });
 
 function resetPage() {
     localStorage.removeItem('roomData');
-    if(roomStream) {
-        roomStream.getTracks().forEach(track => track.stop());
-    }
+    if(roomStream) roomStream.getTracks().forEach(t => t.stop());
+    if(peerConnection) peerConnection.close();
     window.location.href = '/chatentry.html';
 }
