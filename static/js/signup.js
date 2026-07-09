@@ -27,6 +27,12 @@ signupForm.addEventListener("submit", async (event) => {
     signupMessage.className = "auth-message success";
     alert("회원가입이 완료되었습니다.");
     signupForm.reset();
+
+    if (window.opener && !window.opener.closed) {
+      window.opener.focus();
+    }
+
+    window.close();
   } catch (error) {
     signupMessage.textContent = error.message;
     signupMessage.className = "auth-message error";
