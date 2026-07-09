@@ -1,9 +1,20 @@
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
-from flask import Flask, jsonify, request, send_from_directory
-from openpyxl import Workbook, load_workbook
+try:
+    from flask import Flask, jsonify, request, send_from_directory
+    from openpyxl import Workbook, load_workbook
+except ModuleNotFoundError as error:
+    missing_package = getattr(error, "name", "required package")
+    print(f"[ERROR] Python package not found: {missing_package}")
+    print("[ERROR] Run the commands below in this folder:")
+    print("        python -m ensurepip --upgrade")
+    print("        python -m pip install -r requirements.txt")
+    print("        python app.py")
+    input("Press Enter to close...")
+    raise SystemExit(1)
 
 
 PROJECT_DIR = Path(__file__).resolve().parent
