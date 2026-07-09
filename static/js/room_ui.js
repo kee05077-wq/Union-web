@@ -27,8 +27,7 @@ $(document).ready(function() {
             
             const myFaceEl = document.getElementById('myFace');
             myFaceEl.srcObject = roomStream;
-            // ⚠️ 자바스크립트 레벨에서 거울 모드 2차 강제 주입
-            myFaceEl.style.transform = "scaleX(-1)"; 
+            myFaceEl.style.transform = "scaleX(-1)"; // 자바스크립트 레벨에서 거울 모드 강제 주입
             
             if(roomData.isAudioOn === false) $('#myAudioStat').click();
             if(roomData.isVideoOn === false) $('#myVideoStat').click();
@@ -98,13 +97,16 @@ $(document).ready(function() {
         }, 200); 
     }
 
-    // ⚠️ 수정: 빈 텍스트가 날아오면 박스 숨김 처리
+    // 듀얼 피드백 적용: 인식된 자모와 조합 텍스트 표출
     socket.on('sign_progress', function(data) {
         if (isMySignOn) {
-            if (data.text === '') {
+            if (data.text === '' && (data.current_jamo === '' || !data.current_jamo)) {
                 $('#mySignPreview').hide();
             } else {
-                $('#mySignPreview').show().text(data.text);
+                const currentJamoHtml = `<span style="color:#ffeb3b;">인식: ${data.current_jamo || '-'}</span>`;
+                const assembledHtml = `<span>조합: ${data.text}</span>`;
+                
+                $('#mySignPreview').show().html(`${currentJamoHtml} &nbsp;|&nbsp; ${assembledHtml}`);
             }
         }
     });

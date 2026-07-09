@@ -46,12 +46,11 @@ app = Flask(__name__, static_folder="static", static_url_path="/static")
 app.config['SECRET_KEY'] = 'union-secret-key'
 socketio = SocketIO(app, cors_allowed_origins="*", max_http_buffer_size=1e7, async_mode='eventlet')
 
+# 수어 큐 및 타임아웃 관리
 user_finger_queues = {}
 user_last_active = {}
 
-# ==========================================
-# 정규식 필터링 함수 (단일 자모음 제거)
-# ==========================================
+# 정규식 필터 (단일 자모 제거)
 def remove_single_letters(word: str) -> str:
     return re.sub(r'[ㄱ-ㅎㅏ-ㅣ]', '', word)
 
@@ -207,6 +206,7 @@ def on_sign_frame(data):
         class_id = int(best_box.cls[0].item())
         confidence = best_box.conf[0].item()
         
+        # 신뢰도 0.7 이상만 통과 (노이즈 방어)
         if confidence > 0.7:  
             predicted_jamo = CLASS_MAP.get(class_id)
 
@@ -219,38 +219,38 @@ def on_sign_frame(data):
         
     queue = user_finger_queues[queue_key]
 
-    # 1. 수어가 계속 인식되고 있을 때
+    # 1. 입력 중 (1.5초 대기 갱신)
     if predicted_jamo is not None:
         user_last_active[queue_key] = current_time
         
         if len(queue) == 0 or queue[-1] != predicted_jamo:
             queue.append(predicted_jamo)
             
-            # 오토마타 조립 후 단일 자모음 제거 필터링 통과
             raw_assembled = join_jamos("".join(queue), ignore_err=True)
             filtered_preview = remove_single_letters(raw_assembled)
             
-            if filtered_preview:
-                emit('sign_progress', {'text': filtered_preview}, to=request.sid)
-            else:
-                # 필터링 결과 남은 글자가 없다면 팝업을 숨김
-                emit('sign_progress', {'text': ''}, to=request.sid)
+            display_text = filtered_preview if filtered_preview else raw_assembled
+            
+            emit('sign_progress', {
+                'current_jamo': predicted_jamo, 
+                'text': display_text
+            }, to=request.sid)
                 
-    # 2. 수어가 인식되지 않을 때 (0.8초 타임아웃)
+    # 2. 입력 중단 시 (1.5초 타임아웃 판정)
     else:
         if len(queue) > 0:
             time_passed = current_time - user_last_active.get(queue_key, current_time)
             
-            if time_passed >= 0.8:
+            if time_passed >= 1.5:
                 raw_assembled = join_jamos("".join(queue), ignore_err=True)
                 filtered_result = remove_single_letters(raw_assembled)
                 
-                # 완전히 조립된 글자만 최종 송출
+                # 완성된 문장만 송출
                 if filtered_result.strip():
                     emit('sign_result', {'name': name, 'text': filtered_result}, to=room, include_self=True)
                     
                 user_finger_queues[queue_key] = []
-                emit('sign_progress', {'text': ''}, to=request.sid)
+                emit('sign_progress', {'current_jamo': '', 'text': ''}, to=request.sid)
 
 if __name__ == "__main__":
     ensure_workbook()
