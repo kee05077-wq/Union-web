@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>UNION | 교육</title>
+<link rel="stylesheet" href="static/css/main.css">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"
+    integrity="sha512-q/dWJ3kcmjBLU4Qc47E4A9kTB4m3wuTY7vkFJDTZKjTs8jhyGQnaUrxa0Ytd0ssMZhbNua9hE+E7Qv1j+DyZwA=="
+    crossorigin="anonymous"></script>
+
+<style>
+  body{background:var(--cream);color:var(--ink);margin:0;font-family:'Noto Sans KR', sans-serif;}
+  .nav-active{opacity:1 !important;}
+  .nav-active::after{width:100% !important;}
+
+  /* ---- Hero band ---- */
+  .edu-hero{padding:56px 48px 8px;max-width:1160px;margin:0 auto;}
+  .edu-hero h1{font-family:'Black Han Sans', sans-serif;font-weight:400;font-size:clamp(26px,3vw,36px);color:var(--navy);margin:6px 0 14px;}
+  .edu-hero p{font-size:15px;line-height:1.75;color:var(--slate);max-width:640px;}
+
+  /* ---- Layout ---- */
+  .edu-layout{max-width:1160px;margin:0 auto;padding:24px 48px 96px;display:grid;grid-template-columns:300px 1fr;gap:28px;align-items:start;}
+
+  /* ---- Sidebar: curriculum ---- */
+  .edu-sidebar{background:var(--white);border:1px solid rgba(18,22,43,0.08);border-radius:22px;padding:10px;box-shadow:0 20px 40px rgba(18,22,43,0.06);}
+  .level-item{width:100%;display:flex;flex-direction:column;gap:8px;text-align:left;padding:16px 18px;border-radius:16px;border:none;background:transparent;cursor:pointer;transition:background 0.2s;margin-bottom:4px;}
+  .level-item:hover{background:rgba(18,22,43,0.04);}
+  .level-item.active{background:var(--navy);}
+  .level-num{font-family:'Black Han Sans', sans-serif;font-size:12px;letter-spacing:0.12em;color:var(--teal);}
+  .level-item.active .level-num{color:#7fe3d3;}
+  .level-name{font-size:15px;font-weight:700;color:var(--ink);}
+  .level-item.active .level-name{color:var(--white);}
+  .level-bar{height:5px;border-radius:100px;background:rgba(18,22,43,0.08);overflow:hidden;}
+  .level-item.active .level-bar{background:rgba(255,255,255,0.15);}
+  .level-bar-fill{height:100%;background:var(--coral);border-radius:100px;width:0%;transition:width 0.3s ease;}
+  .level-progress-text{font-size:12px;color:var(--slate);font-weight:600;}
+  .level-item.active .level-progress-text{color:rgba(255,255,255,0.65);}
+
+  /* ---- Stage: lesson card ---- */
+  .edu-stage{background:var(--white);border:1px solid rgba(18,22,43,0.08);border-radius:26px;padding:40px;box-shadow:0 24px 48px rgba(18,22,43,0.07);position:relative;}
+  .stage-status{position:absolute;top:28px;right:32px;display:flex;align-items:center;gap:8px;font-size:12px;font-weight:700;color:var(--slate);}
+  .status-dot{width:8px;height:8px;border-radius:50%;background:var(--slate);}
+  .status-dot.online{background:var(--teal);box-shadow:0 0 0 rgba(43,179,160,0.5);animation:nav-pulse 1.8s ease-out infinite;}
+  .status-dot.offline{background:var(--alert);}
+
+  .lesson-tag{display:inline-block;background:rgba(18,22,43,0.06);color:var(--slate);font-size:11px;font-weight:700;letter-spacing:0.1em;padding:6px 14px;border-radius:100px;margin-bottom:22px;}
+  .lesson-target{font-family:'Black Han Sans', sans-serif;font-weight:400;font-size:72px;color:var(--navy);text-align:center;margin-bottom:6px;}
+  .lesson-hint{text-align:center;font-size:13.5px;color:var(--slate);margin-bottom:26px;}
+
+  .screen-frame{position:relative;width:100%;max-width:420px;aspect-ratio:4/3;background:var(--navy-2);border-radius:20px;overflow:hidden;margin:0 auto;box-shadow:0 20px 40px rgba(18,22,43,0.25);}
+  #myFace{width:100%;height:100%;object-fit:cover;transform:scaleX(-1);background:#000;}
+  .scan-overlay{position:absolute;inset:14px;border-radius:12px;pointer-events:none;opacity:0;transition:opacity .3s ease;}
+  .scan-overlay.active{opacity:1;}
+  .scan-corner{position:absolute;width:22px;height:22px;border:3px solid var(--teal);}
+  .scan-corner.tl{top:0;left:0;border-right:none;border-bottom:none;border-radius:8px 0 0 0;}
+  .scan-corner.tr{top:0;right:0;border-left:none;border-bottom:none;border-radius:0 8px 0 0;}
+  .scan-corner.bl{bottom:0;left:0;border-right:none;border-top:none;border-radius:0 0 0 8px;}
+  .scan-corner.br{bottom:0;right:0;border-left:none;border-top:none;border-radius:0 0 8px 0;}
+  .scan-label{position:absolute;top:12px;left:12px;display:flex;align-items:center;gap:7px;background:rgba(0,0,0,0.55);padding:6px 12px;border-radius:100px;font-size:11px;font-weight:700;color:#fff;}
+  .rec-dot{width:7px;height:7px;border-radius:50%;background:var(--alert);animation:pulse-dot 1.2s ease-in-out infinite;}
+  .cam-placeholder{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,0.4);font-size:13px;font-weight:600;text-align:center;padding:20px;}
+
+  .feedback-row{text-align:center;margin-top:22px;min-height:28px;font-size:15px;font-weight:700;}
+  .feedback-row.correct{color:var(--teal);}
+  .feedback-row.wrong{color:var(--coral);}
+  .feedback-row.neutral{color:var(--slate);font-weight:500;}
+
+  .dots{margin-top:18px;flex-wrap:wrap;}
+  .dots span.current{background:var(--coral);}
+
+  .lesson-controls{display:flex;justify-content:center;align-items:center;gap:14px;margin-top:30px;}
+  .btn-ghost{padding:13px 22px;border-radius:100px;border:1px solid rgba(18,22,43,0.14);background:#fff;color:var(--navy);font-weight:700;font-size:14px;cursor:pointer;transition:all 0.2s;}
+  .btn-ghost:hover{background:rgba(18,22,43,0.05);}
+  .btn-ghost:disabled{opacity:0.35;cursor:not-allowed;}
+  .btn-recognize{padding:14px 30px;border-radius:100px;border:none;background:var(--teal);color:#fff;font-weight:700;font-size:14.5px;cursor:pointer;transition:all 0.2s;display:inline-flex;align-items:center;gap:8px;}
+  .btn-recognize:hover{background:#229989;}
+  .btn-recognize.active{background:var(--coral);}
+  .btn-recognize.active:hover{background:#ff805f;}
+
+  .level-complete{text-align:center;padding:20px 0;}
+  .level-complete h3{font-family:'Black Han Sans', sans-serif;font-weight:400;font-size:26px;color:var(--navy);margin-bottom:10px;}
+  .level-complete p{color:var(--slate);font-size:14px;margin-bottom:22px;}
+
+  @media (max-width:960px){
+    .edu-hero{padding:44px 24px 8px;}
+    .edu-layout{grid-template-columns:1fr;padding:20px 24px 64px;}
+  }
+</style>
+</head>
+<body data-socket-url="http://localhost:5000">
+    <header>
+        <a href="/" class="logo">
+            <span class="logo-mark"><span></span><span></span></span>
+            <span class="logo-text">UNION<small>TEAM ON</small></span>
+        </a>
+        <div class="nav-right">
+            <nav class="nav-links">
+                <ul>
+                    <li><a href="chatentry.html">화상강의</a></li>
+                    <li><a href="translate.html">실시간 번역기</a></li>
+                    <li><a href="education.html" class="nav-active">교육</a></li>
+                    <li><a href="/#service-emergency" class="nav-alert"><span class="nav-alert-dot"></span>긴급신고</a></li>
+                </ul>
+            </nav>
+        </div>
+    </header>
+
+    <section class="edu-hero">
+        <span class="eyebrow">SIGN LANGUAGE LESSONS</span>
+        <h1>누구나, 오늘부터 배우는 수어 지문자</h1>
+        <p>카메라 앞에서 손모양을 만들면 UNION의 AI가 실제로 인식해서 맞았는지 바로 알려줘요. 자음부터 모음까지, 5분이면 한 세트를 끝낼 수 있어요.</p>
+    </section>
+
+    <main class="edu-layout">
+        <aside class="edu-sidebar" id="levelList">
+            <button class="level-item active" data-level="consonant">
+                <span class="level-num">LESSON 01</span>
+                <span class="level-name">자음 지문자 배우기</span>
+                <div class="level-bar"><div class="level-bar-fill" id="bar-consonant"></div></div>
+                <span class="level-progress-text" id="progress-consonant">0 / 14 완료</span>
+            </button>
+            <button class="level-item" data-level="vowel">
+                <span class="level-num">LESSON 02</span>
+                <span class="level-name">모음 지문자 배우기</span>
+                <div class="level-bar"><div class="level-bar-fill" id="bar-vowel"></div></div>
+                <span class="level-progress-text" id="progress-vowel">0 / 17 완료</span>
+            </button>
+        </aside>
+
+        <section class="edu-stage">
+            <div class="stage-status">
+                <span class="status-dot offline" id="statusDot"></span>
+                <span id="statusText">서버 연결 중...</span>
+            </div>
+
+            <div id="lessonPanel">
+                <span class="lesson-tag" id="lessonTag">LESSON 01 · 자음</span>
+                <div class="lesson-target" id="targetLetter">ㄱ</div>
+                <p class="lesson-hint" id="lessonHint">이 모양을 손으로 따라 만든 뒤, 손을 화면 밖으로 잠깐 내려주세요.</p>
+
+                <div class="screen-frame">
+                    <video id="myFace" autoplay playsinline muted></video>
+                    <div class="cam-placeholder" id="camPlaceholder">아래 '인식 시작'을 누르면<br>카메라가 켜져요</div>
+                    <div class="scan-overlay" id="scanOverlay">
+                        <div class="scan-corner tl"></div>
+                        <div class="scan-corner tr"></div>
+                        <div class="scan-corner bl"></div>
+                        <div class="scan-corner br"></div>
+                        <span class="scan-label"><span class="rec-dot"></span>인식 중...</span>
+                    </div>
+                </div>
+
+                <div class="feedback-row neutral" id="feedbackText">카메라를 켜고 '인식 시작'을 눌러주세요.</div>
+
+                <div class="dots" id="dotsRow"></div>
+
+                <div class="lesson-controls">
+                    <button class="btn-ghost" id="prevBtn">이전</button>
+                    <button class="btn-recognize" id="recognizeToggle"><i class="bi bi-stars"></i><span>인식 시작</span></button>
+                    <button class="btn-ghost" id="nextBtn">다음</button>
+                </div>
+            </div>
+
+            <div class="level-complete" id="levelComplete" hidden>
+                <h3>레슨을 모두 완료했어요!</h3>
+                <p>이 레슨의 모든 지문자를 성공적으로 인식했습니다.</p>
+                <button class="btn-recognize" id="restartLevelBtn"><i class="bi bi-arrow-repeat"></i><span>다시 연습하기</span></button>
+            </div>
+        </section>
+    </main>
+
+    <canvas id="captureCanvas" width="400" height="300" hidden></canvas>
+
+    <script src="static/js/education.js"></script>
+</body>
+</html>
