@@ -1,23 +1,48 @@
 from __future__ import annotations
 
+import subprocess
 import sys
 from pathlib import Path
+
+PROJECT_DIR = Path(__file__).resolve().parent
+REQUIREMENTS_PATH = PROJECT_DIR / "requirements.txt"
+
+
+def install_missing_packages(missing_package: str) -> None:
+    print(f"[SYSTEM] Missing package detected: {missing_package}")
+    print("[SYSTEM] Trying to install required Python packages automatically...")
+
+    subprocess.run(
+        [sys.executable, "-m", "ensurepip", "--upgrade"],
+        cwd=PROJECT_DIR,
+        check=False,
+    )
+    subprocess.run(
+        [sys.executable, "-m", "pip", "install", "-r", str(REQUIREMENTS_PATH)],
+        cwd=PROJECT_DIR,
+        check=True,
+    )
+
 
 try:
     from flask import Flask, jsonify, request, send_from_directory
     from openpyxl import Workbook, load_workbook
 except ModuleNotFoundError as error:
     missing_package = getattr(error, "name", "required package")
-    print(f"[ERROR] Python package not found: {missing_package}")
-    print("[ERROR] Run the commands below in this folder:")
-    print("        python -m ensurepip --upgrade")
-    print("        python -m pip install -r requirements.txt")
-    print("        python app.py")
-    input("Press Enter to close...")
-    raise SystemExit(1)
-
-
-PROJECT_DIR = Path(__file__).resolve().parent
+    try:
+        install_missing_packages(missing_package)
+        print("[SYSTEM] Package installation completed. Restarting app...")
+        subprocess.run([sys.executable, str(PROJECT_DIR / "app.py")], cwd=PROJECT_DIR, check=False)
+        raise SystemExit(0)
+    except Exception as install_error:
+        print(f"[ERROR] Python package not found: {missing_package}")
+        print(f"[ERROR] Automatic installation failed: {install_error}")
+        print("[ERROR] Run the commands below in this folder:")
+        print("        python -m ensurepip --upgrade")
+        print("        python -m pip install -r requirements.txt")
+        print("        python app.py")
+        input("Press Enter to close...")
+        raise SystemExit(1)
 DATABASE_DIR = PROJECT_DIR / "database"
 WORKBOOK_PATH = DATABASE_DIR / "users.xlsx"
 SHEET_NAME = "Users"
