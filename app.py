@@ -240,6 +240,7 @@ def find_password():
 if __name__ == "__main__":
     ensure_workbook()
     print("[SYSTEM] Union-web Flask 서버를 시작합니다.")
-    print("[SYSTEM] 브라우저에서 http://localhost:5000 으로 접속하세요.")
+    print("[SYSTEM] 브라우저에서 http://localhost 로 접속하세요.")
     print("[SYSTEM] 종료하려면 Ctrl+C 를 누르세요.")
-    app.run(host="0.0.0.0", port=5000, debug=False)
+    # 포트를 5000에서 80으로 변경하여 외부에서 포트 입력 없이 접속 가능하도록 설정합니다.
+    app.run(host="0.0.0.0", port=80, debug=False)
