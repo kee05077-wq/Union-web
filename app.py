@@ -1,5 +1,5 @@
 from __future__ import annotations
-
+from flask import Flask, jsonify, request, send_from_directory, render_template
 import subprocess
 import sys
 from pathlib import Path
@@ -119,13 +119,14 @@ def same_text(left: str | None, right: str | None) -> bool:
 
 @app.get("/")
 def serve_index():
-    return send_from_directory(PROJECT_DIR, "index.html")
+    return render_template("index.html")
 
 
 @app.get("/<path:filename>")
 def serve_root_file(filename: str):
     if filename in HTML_FILES:
-        return send_from_directory(PROJECT_DIR, filename)
+        return render_template(filename)
+    
     return send_from_directory(PROJECT_DIR, filename)
 
 
