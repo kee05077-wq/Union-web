@@ -12,6 +12,9 @@ async function initPreview() {
         video.playsInline = true;
         video.muted = true; // 본인 하울링 방지
         
+        // CSS가 먹히지 않는 예외 브라우저를 대비한 안전 장치 속성 주입 가능
+        video.style.transform = "scaleX(-1)";
+        
         document.getElementById('preview').innerHTML = '';
         document.getElementById('preview').appendChild(video);
     } catch (err) {
