@@ -11,10 +11,8 @@ async function initPreview() {
         video.autoplay = true;
         video.playsInline = true;
         video.muted = true; // 본인 하울링 방지
-        
-        // CSS가 먹히지 않는 예외 브라우저를 대비한 안전 장치 속성 주입 가능
-        video.style.transform = "scaleX(-1)";
-        
+        video.style.transform = "scaleX(-1)"; // 본인 화면은 거울 모드로 표시 (오른손이 화면 오른쪽에 보이도록)
+
         document.getElementById('preview').innerHTML = '';
         document.getElementById('preview').appendChild(video);
     } catch (err) {

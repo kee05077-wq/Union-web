@@ -1,13 +1,28 @@
 from __future__ import annotations
 
+import atexit
+import os
 import subprocess
 import sys
 import time
 import re
 from pathlib import Path
 
+# TensorFlow의 oneDNN 안내 로그 등 불필요한 C++ 레벨 로그 억제.
+# mediapipe/tensorflow가 import되기 전에 설정해야 적용된다.
+os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "3")
+os.environ.setdefault("GLOG_minloglevel", "3")
+
 PROJECT_DIR = Path(__file__).resolve().parent
 REQUIREMENTS_PATH = PROJECT_DIR / "requirements.txt"
+
+# tensorflow==2.21.0 / mediapipe==0.10.35 는 Python 3.11 전용 휠만 검증됨
+REQUIRED_PYTHON = (3, 11)
+if sys.version_info[:2] != REQUIRED_PYTHON:
+    print(f"[ERROR] 이 프로젝트는 Python {REQUIRED_PYTHON[0]}.{REQUIRED_PYTHON[1]} 전용입니다. (현재: Python {sys.version_info[0]}.{sys.version_info[1]})")
+    print(f"        tensorflow/mediapipe 고정 버전이 지원하지 않는 Python 버전입니다. 'py -{REQUIRED_PYTHON[0]}.{REQUIRED_PYTHON[1]} app.py' 로 실행해 주세요.")
+    input("Press Enter to close...")
+    raise SystemExit(1)
 
 def install_missing_packages(missing_package: str) -> None:
     print(f"[SYSTEM] Missing package detected: {missing_package}")
@@ -18,11 +33,18 @@ try:
     from flask import Flask, jsonify, request, send_from_directory, render_template
     from flask_socketio import SocketIO, emit, join_room, leave_room
     from openpyxl import Workbook, load_workbook
+    from collections import deque
+    from engineio.payload import Payload
     import base64
+    import threading
+    import eventlet
+    import eventlet.tpool
     import cv2
     import numpy as np
-    from ultralytics import YOLO
-    from unicode import join_jamos
+    from tensorflow.keras.models import load_model
+    from unicode import join_jamos, CHAR_MEDIALS
+    from modules.hand_module import HandDetector
+    from modules.utils import Vector_Normalization
 except ModuleNotFoundError as error:
     missing_package = getattr(error, "name", "required package")
     try:
@@ -46,29 +68,77 @@ app = Flask(__name__, static_folder="static", static_url_path="/static")
 app.config['SECRET_KEY'] = 'union-secret-key'
 socketio = SocketIO(app, cors_allowed_origins="*", max_http_buffer_size=1e7, async_mode='eventlet')
 
+# sign_frame이 200ms 간격으로 계속 들어오는 동안 MediaPipe/TensorFlow 처리가 지연되면
+# 폴링 트랜스포트에 패킷이 쌓여 기본 한도(16개)를 넘기므로 여유 있게 올려둔다.
+Payload.max_decode_packets = 200
+
 # 수어 큐 및 타임아웃 관리
-user_finger_queues = {}
+user_finger_queues = {}    # 확정되어 큐에 편입된 자모
+user_pending_jamo = {}     # 아직 확정되지 않은 후보 음운 (자음<->모음 전환 전까지 갱신만 됨)
+user_sentence_words = {}   # 확정되어 문장에 편입된 단어 목록
 user_last_active = {}
+
+CHAR_MEDIALS_SET = set(CHAR_MEDIALS)
+
+def is_vowel(jamo: str) -> bool:
+    return jamo in CHAR_MEDIALS_SET
+
+WORD_PAUSE_SECONDS = 1.5      # 이 시간만큼 손 인식이 끊기면 진행 중이던 자모를 하나의 단어로 확정
+SENTENCE_PAUSE_SECONDS = 1.5  # 단어 확정과 동시에 즉시 문장으로 묶어 전송 (1.5초 단일 임계값)
 
 # 정규식 필터 (단일 자모 제거)
 def remove_single_letters(word: str) -> str:
     return re.sub(r'[ㄱ-ㅎㅏ-ㅣ]', '', word)
 
 # ==========================================
-# YOLO 모델 로드
+# 손 제스처 분류 모델 로드 (MediaPipe Holistic + Keras)
 # ==========================================
 try:
-    print("[SYSTEM] 커스텀 수어 YOLO 모델(best.pt)을 로드합니다...")
-    model = YOLO('best.pt') 
+    print("[SYSTEM] 수어 제스처 분류 모델(gesture_classifier.h5)을 로드합니다...")
+    model = load_model(PROJECT_DIR / "gesture_classifier.h5", compile=False)
 except Exception as e:
     print(f"[ERROR] 모델 로드 실패: {e}")
 
-CLASS_MAP = {
-    0: 'ㄱ', 1: 'ㄴ', 2: 'ㄷ', 3: 'ㄹ', 4: 'ㅁ', 5: 'ㅂ', 6: 'ㅅ', 7: 'ㅇ', 
-    8: 'ㅈ', 9: 'ㅊ', 10: 'ㅋ', 11: 'ㅌ', 12: 'ㅍ', 13: 'ㅎ', 14: 'ㅏ', 15: 'ㅑ', 
-    16: 'ㅓ', 17: 'ㅕ', 18: 'ㅗ', 19: 'ㅛ', 20: 'ㅜ', 21: 'ㅠ', 22: 'ㅡ', 23: 'ㅣ', 
-    24: 'ㅐ', 25: 'ㅒ', 26: 'ㅔ', 27: 'ㅖ', 28: 'ㅢ', 29: 'ㅚ', 30: 'ㅟ'
-}
+# Keras 모델은 여러 스레드에서 동시에 predict()를 호출하는 상황을 보장하지 않으므로 직렬화한다.
+predict_lock = threading.Lock()
+
+ACTIONS = ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ', 'ㅈ', 'ㅊ', 'ㅋ', 'ㅌ', 'ㅍ', 'ㅎ',
+           'ㅏ', 'ㅑ', 'ㅓ', 'ㅕ', 'ㅗ', 'ㅛ', 'ㅜ', 'ㅠ', 'ㅡ', 'ㅣ',
+           'ㅐ', 'ㅒ', 'ㅔ', 'ㅖ', 'ㅢ', 'ㅚ', 'ㅟ']
+SEQ_LENGTH = 10
+PREDICTION_CONFIDENCE_THRESHOLD = 0.5
+
+# 세션(room+name)별 프레임 시퀀스 버퍼와 MediaPipe 검출기
+user_landmark_seqs: dict[str, deque] = {}
+user_detectors: dict[str, HandDetector] = {}
+
+def get_detector(queue_key: str) -> HandDetector:
+    if queue_key not in user_detectors:
+        user_detectors[queue_key] = HandDetector(min_detection_confidence=0.5)
+    return user_detectors[queue_key]
+
+def _detect_right_hand(detector: HandDetector, img):
+    img = detector.findHands(img)
+    return detector.findRightHandLandmark(img)
+
+def _predict_gesture(input_data):
+    with predict_lock:
+        return model.predict(input_data, verbose=0)[0]
+
+def reset_sessions() -> None:
+    """서버 시작/종료 시 세션별 자모 조합 상태와 MediaPipe 검출기를 깨끗하게 초기화한다."""
+    for detector in user_detectors.values():
+        try:
+            detector.landmarker.close()
+        except Exception:
+            pass
+
+    user_finger_queues.clear()
+    user_pending_jamo.clear()
+    user_sentence_words.clear()
+    user_last_active.clear()
+    user_landmark_seqs.clear()
+    user_detectors.clear()
 
 # ==========================================
 # 엑셀 DB 함수
@@ -198,61 +268,99 @@ def on_sign_frame(data):
     nparr = np.frombuffer(img_data, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
 
-    results = model.predict(img, verbose=False)
-    predicted_jamo = None
-    
-    if len(results) > 0 and len(results[0].boxes) > 0:
-        best_box = results[0].boxes[0]
-        class_id = int(best_box.cls[0].item())
-        confidence = best_box.conf[0].item()
-        
-        # 신뢰도 0.7 이상만 통과 (노이즈 방어)
-        if confidence > 0.7:  
-            predicted_jamo = CLASS_MAP.get(class_id)
-
-    queue_key = f"{room}_{name}"
+    # room+name은 같은 방에 같은 이름으로 접속하면 충돌할 수 있으므로,
+    # 소켓 연결마다 고유한 request.sid로 세션 상태를 구분한다.
+    queue_key = request.sid
     current_time = time.time()
-    
-    if queue_key not in user_finger_queues: 
+
+    if queue_key not in user_finger_queues:
         user_finger_queues[queue_key] = []
         user_last_active[queue_key] = current_time
-        
-    queue = user_finger_queues[queue_key]
+    if queue_key not in user_landmark_seqs:
+        user_landmark_seqs[queue_key] = deque(maxlen=SEQ_LENGTH)
 
-    # 1. 입력 중 (1.5초 대기 갱신)
+    detector = get_detector(queue_key)
+    seq = user_landmark_seqs[queue_key]
+
+    # MediaPipe/TensorFlow는 블로킹 호출이라 eventlet 허브를 멈추게 하므로,
+    # 별도 OS 스레드(tpool)에서 실행해 다른 소켓 트래픽이 계속 처리되도록 한다.
+    right_hand_lmList = eventlet.tpool.execute(_detect_right_hand, detector, img)
+
+    predicted_jamo = None
+
+    if right_hand_lmList is not None:
+        joint = np.zeros((42, 2))
+        for j, lm in enumerate(right_hand_lmList):
+            joint[j] = [lm.x, lm.y]
+
+        vector, angle_label = Vector_Normalization(joint)
+        seq.append(np.concatenate([vector.flatten(), angle_label.flatten()]))
+
+        if len(seq) == SEQ_LENGTH:
+            input_data = np.expand_dims(np.array(seq, dtype=np.float32), axis=0)
+            y_pred = eventlet.tpool.execute(_predict_gesture, input_data)
+            class_id = int(np.argmax(y_pred))
+            confidence = float(y_pred[class_id])
+
+            # 신뢰도 PREDICTION_CONFIDENCE_THRESHOLD 이상만 통과 (노이즈 방어)
+            if confidence > PREDICTION_CONFIDENCE_THRESHOLD:
+                predicted_jamo = ACTIONS[class_id]
+
+    queue = user_finger_queues[queue_key]
+    if queue_key not in user_sentence_words:
+        user_sentence_words[queue_key] = []
+    sentence_words = user_sentence_words[queue_key]
+
+    # 1. 입력 중: 한글은 자음/모음이 번갈아 나오는 구조이므로, 자음<->모음 전환이 감지될 때
+    #    비로소 직전까지 표시되던 후보 음운을 큐에 확정한다. 같은 타입 내에서는 후보만 갱신된다.
     if predicted_jamo is not None:
         user_last_active[queue_key] = current_time
-        
-        if len(queue) == 0 or queue[-1] != predicted_jamo:
-            queue.append(predicted_jamo)
-            
-            raw_assembled = join_jamos("".join(queue), ignore_err=True)
-            filtered_preview = remove_single_letters(raw_assembled)
-            
-            display_text = filtered_preview if filtered_preview else raw_assembled
-            
+        pending = user_pending_jamo.get(queue_key)
+
+        if predicted_jamo != pending:
+            if pending is not None and is_vowel(predicted_jamo) != is_vowel(pending):
+                queue.append(pending)
+            user_pending_jamo[queue_key] = predicted_jamo
+
+            preview_chars = queue + [predicted_jamo]
+            raw_assembled = join_jamos("".join(preview_chars), ignore_err=True)
+            current_word = remove_single_letters(raw_assembled) or raw_assembled
+            preview_text = " ".join(sentence_words + [current_word]) if current_word else " ".join(sentence_words)
+
             emit('sign_progress', {
-                'current_jamo': predicted_jamo, 
-                'text': display_text
+                'current_jamo': predicted_jamo,
+                'text': preview_text
             }, to=request.sid)
-                
-    # 2. 입력 중단 시 (1.5초 타임아웃 판정)
+
+    # 2. 입력 중단 시 (WORD_PAUSE: 단어 확정 / SENTENCE_PAUSE: 문장 전체 송출)
     else:
-        if len(queue) > 0:
-            time_passed = current_time - user_last_active.get(queue_key, current_time)
-            
-            if time_passed >= 1.5:
-                raw_assembled = join_jamos("".join(queue), ignore_err=True)
-                filtered_result = remove_single_letters(raw_assembled)
-                
-                # 완성된 문장만 송출
-                if filtered_result.strip():
-                    emit('sign_result', {'name': name, 'text': filtered_result}, to=room, include_self=True)
-                    
-                user_finger_queues[queue_key] = []
-                emit('sign_progress', {'current_jamo': '', 'text': ''}, to=request.sid)
+        time_passed = current_time - user_last_active.get(queue_key, current_time)
+
+        if (queue or queue_key in user_pending_jamo) and time_passed >= WORD_PAUSE_SECONDS:
+            # 아직 확정되지 못한 마지막 후보도 이 시점에 큐로 편입
+            pending = user_pending_jamo.pop(queue_key, None)
+            if pending is not None:
+                queue.append(pending)
+
+            # 음운(자모) -> 음절 조합 후, 조합되지 못한 단자음/단모음은 버리고 완성된 단어만 문장에 편입
+            raw_assembled = join_jamos("".join(queue), ignore_err=True)
+            finished_word = remove_single_letters(raw_assembled)
+            if finished_word:
+                sentence_words.append(finished_word)
+            user_finger_queues[queue_key] = []
+
+        if sentence_words and time_passed >= SENTENCE_PAUSE_SECONDS:
+            # 확정된 단어들을 한 문장으로 묶어 한 번에 송출
+            full_sentence = " ".join(sentence_words)
+            emit('sign_result', {'name': name, 'text': full_sentence}, to=room, include_self=True)
+
+            user_sentence_words[queue_key] = []
+            emit('sign_progress', {'current_jamo': '', 'text': ''}, to=request.sid)
 
 if __name__ == "__main__":
     ensure_workbook()
+    reset_sessions()  # 서버 켤 때: 이전 실행의 잔여 세션 상태 없이 깨끗하게 시작
+    atexit.register(reset_sessions)  # 서버 끌 때: MediaPipe 검출기 정리 및 세션 상태 초기화
+
     print("[SYSTEM] Union-web 실시간 소켓 서버를 시작합니다.")
     socketio.run(app, host="0.0.0.0", port=80, debug=False)

@@ -27,8 +27,8 @@ $(document).ready(function() {
             
             const myFaceEl = document.getElementById('myFace');
             myFaceEl.srcObject = roomStream;
-            myFaceEl.style.transform = "scaleX(-1)"; // 자바스크립트 레벨에서 거울 모드 강제 주입
-            
+            myFaceEl.style.transform = "scaleX(-1)"; // 본인 화면은 거울 모드로 표시 (오른손이 화면 오른쪽에 보이도록)
+
             if(roomData.isAudioOn === false) $('#myAudioStat').click();
             if(roomData.isVideoOn === false) $('#myVideoStat').click();
             
@@ -91,10 +91,10 @@ $(document).ready(function() {
         captureInterval = setInterval(() => {
             if (isMySignOn && roomStream.getVideoTracks()[0].enabled) {
                 context.drawImage(videoEl, 0, 0, canvas.width, canvas.height);
-                const frameData = canvas.toDataURL('image/jpeg', 0.7); 
+                const frameData = canvas.toDataURL('image/jpeg', 0.7);
                 socket.emit('sign_frame', { room: roomData.room, name: roomData.name, image: frameData });
             }
-        }, 200); 
+        }, 29); // 초당 약 35프레임 (1000ms / 35 ≈ 29ms)
     }
 
     // 듀얼 피드백 적용: 인식된 자모와 조합 텍스트 표출

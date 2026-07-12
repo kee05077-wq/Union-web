@@ -20,9 +20,10 @@
         .video-area { flex: 1; position: relative; display: flex; justify-content: center; align-items: center; padding: 24px; background: #000; }
         .videoBgc { width: 100%; height: 100%; position: relative; max-width: 1200px; display: flex; justify-content: center; align-items: center; background: #111; overflow: hidden; border-radius: 12px; }
         
-        #remoteFace { width: 100%; height: 100%; object-fit: cover; }
+        /* 상대방 화면도 거울 모드로 통일: 상대가 오른손을 들면 화면 오른쪽에 보이도록 */
+        #remoteFace { width: 100%; height: 100%; object-fit: cover; transform: scaleX(-1); }
         
-        /* 거울 모드 영구 고정 (!important) */
+        /* 본인 화면 거울 모드 고정: 오른손을 들면 화면 오른쪽에 보이도록 */
         #myFace { position: absolute; bottom: 24px; left: 24px; width: 240px; height: 160px; object-fit: cover; border-radius: 16px; border: 2px solid var(--teal); box-shadow: 0 10px 30px rgba(0,0,0,0.5); z-index: 20; transform: scaleX(-1) !important; background: #000; }
         
         #mySignPreview { position: absolute; bottom: 32px; left: 32px; background: rgba(43, 179, 160, 0.9); color: #fff; padding: 8px 16px; border-radius: 8px; font-size: 15px; font-weight: 700; z-index: 25; box-shadow: 0 4px 10px rgba(0,0,0,0.3); display: none; }
