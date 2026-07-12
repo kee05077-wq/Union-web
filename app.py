@@ -77,6 +77,7 @@ user_finger_queues = {}    # 확정되어 큐에 편입된 자모
 user_pending_jamo = {}     # 아직 확정되지 않은 후보 음운 (자음<->모음 전환 전까지 갱신만 됨)
 user_sentence_words = {}   # 확정되어 문장에 편입된 단어 목록
 user_last_active = {}
+user_candidate_state = {}  # queue_key -> (candidate_jamo, 연속 프레임 수) — 전환 노이즈 디바운스용
 
 CHAR_MEDIALS_SET = set(CHAR_MEDIALS)
 
@@ -107,6 +108,8 @@ ACTIONS = ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ', 'ㅈ', 'ㅊ',
            'ㅐ', 'ㅒ', 'ㅔ', 'ㅖ', 'ㅢ', 'ㅚ', 'ㅟ']
 SEQ_LENGTH = 10
 PREDICTION_CONFIDENCE_THRESHOLD = 0.5
+STABILITY_FRAMES = 3    # 같은 자모가 이만큼 연속으로 나와야 확정 입력으로 인정 (수형 전환 중 오인식 방지)
+CONFIDENCE_MARGIN = 0.15  # 1~2위 클래스 확률 차이가 이보다 작으면 애매한 전환 프레임으로 보고 버림
 
 # 세션(room+name)별 프레임 시퀀스 버퍼와 MediaPipe 검출기
 user_landmark_seqs: dict[str, deque] = {}
@@ -139,6 +142,7 @@ def reset_sessions() -> None:
     user_last_active.clear()
     user_landmark_seqs.clear()
     user_detectors.clear()
+    user_candidate_state.clear()
 
 # ==========================================
 # 엑셀 DB 함수
@@ -258,6 +262,43 @@ def on_webrtc_answer(data): emit('webrtc_answer', data, to=data['room'], include
 @socketio.on('webrtc_ice')
 def on_webrtc_ice(data): emit('webrtc_ice', data, to=data['room'], include_self=False)
 
+# ==========================================
+# 음운(자모) -> 음절 조합 알고리즘
+# ==========================================
+# [왜 필요한가]
+#   LSTM 모델(gesture_classifier.h5)은 10프레임 시퀀스마다 자음/모음 낱자 1개
+#   (ACTIONS, 31종, app.py:106-108)만 예측한다. 그런데 한글은 "가"처럼 초성+중성(+종성)이
+#   하나의 음절 블록으로 합쳐져야 사람이 읽을 수 있는 글자가 된다 — 낱자를 그대로 나열
+#   ("ㄱㅏ")하면 자막으로 쓸 수 없다. 그래서 매 프레임 예측되는 개별 자모를, "다음 자모로
+#   넘어갔다"고 판단되는 시점에 실제 음절로 합치는 후처리(join_jamos, unicode.py:152-203)가
+#   반드시 필요하다.
+#
+# [상태를 나타내는 4개의 전역 딕셔너리] (모두 socket sid = queue_key 기준, app.py:76-80)
+#   - user_pending_jamo[key]   : 지금 손모양이 유지되고 있는, 아직 큐에 확정되지 않은 자모 1개
+#   - user_finger_queues[key]  : 자음<->모음 전환이 감지되어 확정된 자모들의 리스트 (한 단어분)
+#   - user_sentence_words[key] : WORD_PAUSE_SECONDS(app.py:87) 동안 손이 멈춰 완성된 단어 목록
+#   - user_candidate_state[key]: (candidate_jamo, 연속 프레임 수) — STABILITY_FRAMES(app.py:111)
+#                                 디바운스에 쓰는 상태
+#
+# [on_sign_frame 처리 흐름] (아래 함수, app.py:265~)
+#   1. 프레임 -> 오른손 랜드마크 21개
+#      (modules/hand_module.py:28 HandDetector.findRightHandLandmark)
+#   2. 랜드마크 -> 55차원 특징 벡터 (modules/utils.py:12 Vector_Normalization) -> 10프레임
+#      시퀀스(seq)로 누적
+#   3. 시퀀스가 다 차면 LSTM으로 자모 1개 예측 -> 신뢰도+확률마진 필터(app.py:307-315) ->
+#      STABILITY_FRAMES 연속 확인 디바운스(app.py:317-331) -> predicted_jamo 확정
+#      (전환 동작 중 한두 프레임만 스치는 오인식을 걸러내기 위함)
+#   4. 새 단어 시작 시 모음 거부(app.py:338-341) — 한글 음절은 항상 초성(자음)으로 시작하므로
+#   5. predicted_jamo가 직전 pending과 자음<->모음 타입이 다르면 "전환"으로 보고 pending을
+#      큐에 편입(app.py:348-351) -> 새 predicted_jamo가 새 pending이 됨
+#      (같은 타입끼리는 후보만 계속 갱신되고 큐에는 안 들어감)
+#   6. 매 전환마다 큐+새 자모를 join_jamos로 조합해 실시간 미리보기(sign_progress, app.py:358)로
+#      전송
+#   7. 손이 인식되지 않는 상태가 WORD_PAUSE_SECONDS 이상 지속되면 pending까지 큐에 편입한 뒤
+#      join_jamos로 최종 조합 -> remove_single_letters(app.py:91)로 조합되지 못한 낱자모를
+#      제거 -> 완성된 단어만 user_sentence_words에 편입(app.py:367-378)
+#   8. SENTENCE_PAUSE_SECONDS 이상 지속되면 모인 단어들을 문장으로 묶어 sign_result로 송출
+#      (app.py:380-386)
 @socketio.on('sign_frame')
 def on_sign_frame(data):
     room = data['room']
@@ -287,6 +328,7 @@ def on_sign_frame(data):
     right_hand_lmList = eventlet.tpool.execute(_detect_right_hand, detector, img)
 
     predicted_jamo = None
+    pending = user_pending_jamo.get(queue_key)
 
     if right_hand_lmList is not None:
         joint = np.zeros((42, 2))
@@ -299,23 +341,46 @@ def on_sign_frame(data):
         if len(seq) == SEQ_LENGTH:
             input_data = np.expand_dims(np.array(seq, dtype=np.float32), axis=0)
             y_pred = eventlet.tpool.execute(_predict_gesture, input_data)
+            sorted_pred = np.sort(y_pred)[::-1]
             class_id = int(np.argmax(y_pred))
-            confidence = float(y_pred[class_id])
+            confidence = float(sorted_pred[0])
+            margin = float(sorted_pred[0] - sorted_pred[1])
 
-            # 신뢰도 PREDICTION_CONFIDENCE_THRESHOLD 이상만 통과 (노이즈 방어)
-            if confidence > PREDICTION_CONFIDENCE_THRESHOLD:
-                predicted_jamo = ACTIONS[class_id]
+            # 신뢰도와 1~2위 확률 차이가 둘 다 충분해야 통과시킨다. 수형이 바뀌는 전환
+            # 동작 중간의 애매한 프레임은 확률이 여러 클래스에 퍼져 마진이 작아지는
+            # 경향이 있어, 이 조건으로 전환 노이즈를 1차로 걸러낸다.
+            raw_jamo = ACTIONS[class_id] if confidence > PREDICTION_CONFIDENCE_THRESHOLD and margin > CONFIDENCE_MARGIN else None
+
+            # 같은 자모가 STABILITY_FRAMES 프레임 연속으로 나와야 "확정 입력"으로 인정한다
+            # (이미 확정되어 유지 중인 자모라면 즉시 통과). 전환 동작 중 한두 프레임만
+            # 스치듯 오인식된 다른 수어가 그대로 큐에 들어가 단어를 대체/종료시키는
+            # 현상을 막기 위한 디바운스다.
+            candidate_jamo, candidate_count = user_candidate_state.get(queue_key, (None, 0))
+            if raw_jamo is not None and raw_jamo == pending:
+                candidate_jamo, candidate_count = raw_jamo, STABILITY_FRAMES
+            elif raw_jamo is not None and raw_jamo == candidate_jamo:
+                candidate_count += 1
+            else:
+                candidate_jamo, candidate_count = raw_jamo, 1 if raw_jamo is not None else 0
+            user_candidate_state[queue_key] = (candidate_jamo, candidate_count)
+
+            if candidate_count >= STABILITY_FRAMES:
+                predicted_jamo = candidate_jamo
 
     queue = user_finger_queues[queue_key]
     if queue_key not in user_sentence_words:
         user_sentence_words[queue_key] = []
     sentence_words = user_sentence_words[queue_key]
 
+    # 한국어 음절은 항상 초성(자음)으로 시작하므로, 큐와 후보가 모두 비어있는
+    # (= 새 단어를 막 시작하는) 상태에서 모음이 인식되면 자음이 나올 때까지 무시한다.
+    if predicted_jamo is not None and not queue and pending is None and is_vowel(predicted_jamo):
+        predicted_jamo = None
+
     # 1. 입력 중: 한글은 자음/모음이 번갈아 나오는 구조이므로, 자음<->모음 전환이 감지될 때
     #    비로소 직전까지 표시되던 후보 음운을 큐에 확정한다. 같은 타입 내에서는 후보만 갱신된다.
     if predicted_jamo is not None:
         user_last_active[queue_key] = current_time
-        pending = user_pending_jamo.get(queue_key)
 
         if predicted_jamo != pending:
             if pending is not None and is_vowel(predicted_jamo) != is_vowel(pending):
@@ -356,6 +421,11 @@ def on_sign_frame(data):
 
             user_sentence_words[queue_key] = []
             emit('sign_progress', {'current_jamo': '', 'text': ''}, to=request.sid)
+
+    # 클라이언트가 이 반환값을 ack 콜백으로 받아 "이전 프레임 처리가 끝난 뒤에만"
+    # 다음 프레임을 전송하도록 한다. 고정 간격으로만 보내면 MediaPipe/TensorFlow
+    # 처리 속도를 넘어서는 프레임이 계속 쌓여 실시간 인식이 점점 밀리게 된다.
+    return {'ok': True}
 
 if __name__ == "__main__":
     ensure_workbook()
