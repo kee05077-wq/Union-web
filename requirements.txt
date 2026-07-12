@@ -1,6 +1,5 @@
-Flask>=3.0,<4.0
-openpyxl>=3.1,<4.0
-flask-socketio
-eventlet
-ultralytics
+mediapipe==0.10.35
+tensorflow==2.15.1
 opencv-python
+numpy
+scikit-learn

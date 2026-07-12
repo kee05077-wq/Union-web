@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+
+phoneme_model/dataset/videos/*
+phoneme_model/dataset/sequences/*
+phoneme_model/models/*.h5
+word_model/dataset/videos/*
+word_model/dataset/sequences/*
+word_model/models/*.h5
+
+mediapipe_models/*.task
