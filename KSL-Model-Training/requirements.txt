@@ -1,0 +1,5 @@
+mediapipe==0.10.35
+tensorflow==2.15.1
+opencv-python
+numpy
+scikit-learn
