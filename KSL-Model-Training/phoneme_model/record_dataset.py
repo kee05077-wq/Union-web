@@ -18,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 import cv2
 
 from config import ACTIONS, VIDEO_DIR
-from modules.utils import createDirectory
+from modules.utils import createDirectory, put_text_kr
 
 
 def next_take_number(class_dir) -> int:
@@ -43,8 +43,7 @@ def record_class(cap, action: str, seconds: float, fourcc) -> None:
     print(f"[{action}] {seconds}초간 녹화합니다. 준비되면 아무 키나 누르세요 (ESC=건너뛰기)")
     ret, frame = cap.read()
     if ret:
-        cv2.putText(frame, f"'{action}' 준비 - 아무 키나 누르세요", (10, 40),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 0), 2)
+        frame = put_text_kr(frame, f"'{action}' 준비 - 아무 키나 누르세요", (10, 10), color=(0, 255, 0))
         cv2.imshow("record_dataset", frame)
         if cv2.waitKey(0) == 27:
             writer.release()
@@ -59,8 +58,7 @@ def record_class(cap, action: str, seconds: float, fourcc) -> None:
         writer.write(frame)
 
         remaining = seconds - (time.time() - start)
-        cv2.putText(frame, f"REC '{action}' {remaining:0.1f}s", (10, 40),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 0, 255), 2)
+        frame = put_text_kr(frame, f"REC '{action}' {remaining:0.1f}s", (10, 10), color=(0, 0, 255))
         cv2.imshow("record_dataset", frame)
         if cv2.waitKey(1) == 27:
             break

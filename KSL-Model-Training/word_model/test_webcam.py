@@ -17,7 +17,7 @@ from tensorflow.keras.models import load_model
 
 from config import ACTIONS, MODEL_PATH, SEQ_LENGTH
 from modules.holistic_module import HolisticDetector
-from modules.utils import extract_word_keypoints
+from modules.utils import extract_word_keypoints, put_text_kr
 
 CONFIDENCE_THRESHOLD = 0.5
 STABLE_FRAMES = 10  # 최근 N개 예측이 모두 같아야 확정
@@ -63,8 +63,7 @@ def main():
                     sentence = sentence[-MAX_SENTENCE_WORDS:]
 
         cv2.rectangle(frame, (0, 0), (640, 40), (245, 117, 16), -1)
-        cv2.putText(frame, " ".join(sentence), (10, 28),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
+        frame = put_text_kr(frame, " ".join(sentence), (10, 6))
         cv2.imshow("word_model test", frame)
 
         if cv2.waitKey(1) & 0xFF == 27:

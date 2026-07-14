@@ -17,7 +17,7 @@ from tensorflow.keras.models import load_model
 
 from config import ACTIONS, MODEL_PATH, SEQ_LENGTH
 from modules.holistic_module import HolisticDetector
-from modules.utils import extract_phoneme_keypoints
+from modules.utils import extract_phoneme_keypoints, put_text_kr
 
 CONFIDENCE_THRESHOLD = 0.6
 
@@ -54,8 +54,7 @@ def main():
                     label = ACTIONS[class_id]
 
         cv2.rectangle(frame, (0, 0), (320, 40), (245, 117, 16), -1)
-        cv2.putText(frame, f"{label} ({confidence:.2f})", (10, 28),
-                    cv2.FONT_HERSHEY_SIMPLEX, 1.0, (255, 255, 255), 2)
+        frame = put_text_kr(frame, f"{label} ({confidence:.2f})", (10, 6))
         cv2.imshow("phoneme_model test", frame)
 
         if cv2.waitKey(1) & 0xFF == 27:

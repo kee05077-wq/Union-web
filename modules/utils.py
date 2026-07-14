@@ -1,5 +1,9 @@
 import os
+from pathlib import Path
+
+import cv2
 import numpy as np
+from PIL import Image, ImageDraw, ImageFont
 
 def createDirectory(directory):
     try:
@@ -7,6 +11,27 @@ def createDirectory(directory):
             os.makedirs(directory)
     except OSError:
         print("Error: Failed to create the directory.")
+
+# ==========================================
+# 한글 텍스트 오버레이
+# cv2.putText는 Hershey 폰트만 지원해서 한글 글리프가 없어 '?'로 깨진다.
+# PIL로 렌더링한 뒤 다시 OpenCV 이미지로 변환하는 방식으로 우회한다.
+# ==========================================
+_KOREAN_FONT_PATH = Path("C:/Windows/Fonts/malgun.ttf")
+_font_cache: dict[int, ImageFont.FreeTypeFont] = {}
+
+def _get_korean_font(font_size: int) -> ImageFont.FreeTypeFont:
+    if font_size not in _font_cache:
+        _font_cache[font_size] = ImageFont.truetype(str(_KOREAN_FONT_PATH), font_size)
+    return _font_cache[font_size]
+
+def put_text_kr(img_bgr, text, org, font_size=28, color=(255, 255, 255)):
+    """한글이 섞인 텍스트를 OpenCV BGR 이미지에 그려서 반환한다.
+    org는 cv2.putText와 달리 텍스트 좌상단 좌표, color는 (B, G, R) 순서."""
+    img_pil = Image.fromarray(cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB))
+    draw = ImageDraw.Draw(img_pil)
+    draw.text(org, text, font=_get_korean_font(font_size), fill=(color[2], color[1], color[0]))
+    return cv2.cvtColor(np.array(img_pil), cv2.COLOR_RGB2BGR)
 
 # vector normalization
 def Vector_Normalization(joint):
