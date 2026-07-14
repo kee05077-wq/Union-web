@@ -44,7 +44,7 @@ try:
     from tensorflow.keras.models import load_model
     from unicode import join_jamos, CHAR_MEDIALS
     from modules.hand_module import HandDetector
-    from modules.utils import Vector_Normalization
+    from modules.utils import Vector_Normalization, resample_time_buffer
 except ModuleNotFoundError as error:
     missing_package = getattr(error, "name", "required package")
     try:
@@ -108,7 +108,15 @@ ACTIONS = ['ㄱ', 'ㄴ', 'ㄷ', 'ㄹ', 'ㅁ', 'ㅂ', 'ㅅ', 'ㅇ', 'ㅈ', 'ㅊ',
 SEQ_LENGTH = 10
 PREDICTION_CONFIDENCE_THRESHOLD = 0.5
 
+# 학습 데이터(record_dataset.py)는 웹캠의 실제 fps(보통 30)로 녹화되었으므로,
+# SEQ_LENGTH 프레임은 학습 시점 기준 약 WINDOW_SECONDS 만큼의 실제 시간에 해당한다.
+# 실시간 소켓 프레임은 도착 간격이 불규칙하므로, 프레임 "개수"가 아니라 이 시간 창을
+# 기준으로 리샘플링해야 학습 때와 같은 시간축을 모델에 넣을 수 있다.
+TRAIN_FPS = 30.0
+WINDOW_SECONDS = SEQ_LENGTH / TRAIN_FPS
+
 # 세션(room+name)별 프레임 시퀀스 버퍼와 MediaPipe 검출기
+# 각 원소는 (timestamp, feature_vector) 튜플이며 시간 오름차순으로 쌓인다.
 user_landmark_seqs: dict[str, deque] = {}
 user_detectors: dict[str, HandDetector] = {}
 
@@ -277,10 +285,15 @@ def on_sign_frame(data):
         user_finger_queues[queue_key] = []
         user_last_active[queue_key] = current_time
     if queue_key not in user_landmark_seqs:
-        user_landmark_seqs[queue_key] = deque(maxlen=SEQ_LENGTH)
+        # 최대 fps(~35)로 window_seconds*3 만큼 도착해도 넉넉하도록 여유 있게 잡는다.
+        user_landmark_seqs[queue_key] = deque(maxlen=128)
 
     detector = get_detector(queue_key)
     seq = user_landmark_seqs[queue_key]
+
+    # 손 미검출 등으로 한동안 갱신이 없었으면, 오래된 항목은 리샘플링에 쓰이지 않도록 정리한다.
+    while seq and (current_time - seq[0][0]) > WINDOW_SECONDS * 3:
+        seq.popleft()
 
     # MediaPipe/TensorFlow는 블로킹 호출이라 eventlet 허브를 멈추게 하므로,
     # 별도 OS 스레드(tpool)에서 실행해 다른 소켓 트래픽이 계속 처리되도록 한다.
@@ -294,10 +307,11 @@ def on_sign_frame(data):
             joint[j] = [lm.x, lm.y]
 
         vector, angle_label = Vector_Normalization(joint)
-        seq.append(np.concatenate([vector.flatten(), angle_label.flatten()]))
+        seq.append((current_time, np.concatenate([vector.flatten(), angle_label.flatten()])))
 
-        if len(seq) == SEQ_LENGTH:
-            input_data = np.expand_dims(np.array(seq, dtype=np.float32), axis=0)
+        resampled = resample_time_buffer(seq, SEQ_LENGTH, WINDOW_SECONDS, current_time)
+        if resampled is not None:
+            input_data = np.expand_dims(resampled, axis=0)
             y_pred = eventlet.tpool.execute(_predict_gesture, input_data)
             class_id = int(np.argmax(y_pred))
             confidence = float(y_pred[class_id])
