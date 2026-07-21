@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Uni-On | 실시간 수어 번역기</title>
+<link rel="stylesheet" href="./static/css/main.css">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Noto+Sans+KR:wght@400;500;600;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.8.1/font/bootstrap-icons.css">
+
+<style>
+    body { background: var(--cream); }
+
+    .translate-hero { padding: 56px 48px 8px; text-align: center; }
+    .translate-hero .eyebrow { justify-content: center; }
+    .translate-hero h1 { font-family: 'Black Han Sans', sans-serif; font-weight: 400; font-size: clamp(26px, 3.2vw, 38px); color: var(--navy); }
+    .translate-hero p { margin-top: 12px; color: var(--slate); font-size: 15px; }
+
+    .translate-wrap { display: grid; grid-template-columns: 1fr auto 1fr; gap: 24px; align-items: stretch; max-width: 1180px; margin: 40px auto 24px; padding: 0 48px; }
+    .panel { background: var(--white); border-radius: 20px; box-shadow: 0 20px 45px rgba(18,22,43,0.08); display: flex; flex-direction: column; overflow: hidden; }
+    .panel-header { display: flex; align-items: center; justify-content: space-between; padding: 18px 22px; border-bottom: 1px solid rgba(18,22,43,0.06); }
+    .panel-title { display: flex; align-items: center; gap: 8px; font-weight: 700; font-size: 14px; color: var(--navy); }
+    .panel-title .dot { width: 8px; height: 8px; border-radius: 50%; }
+    .panel-title .dot.coral { background: var(--coral); }
+    .panel-title .dot.teal { background: var(--teal); }
+    .lang-badge { font-size: 12px; font-weight: 700; color: var(--slate); background: var(--cream); padding: 5px 12px; border-radius: 100px; }
+
+    .direction-arrow { display: flex; align-items: center; justify-content: center; color: var(--teal); }
+    .direction-arrow svg { width: 26px; height: 26px; }
+
+    #sourceText { flex: 1; border: none; resize: none; padding: 22px; font-size: 17px; font-family: 'Noto Sans KR', sans-serif; color: var(--ink); outline: none; min-height: 220px; line-height: 1.6; background: transparent; }
+    #sourceText::placeholder { color: rgba(107,114,128,0.55); }
+    .panel-footer { display: flex; align-items: center; justify-content: space-between; padding: 12px 20px; border-top: 1px solid rgba(18,22,43,0.06); }
+    .char-count { font-size: 12px; color: var(--slate); }
+    .btn-clear { background: none; border: none; color: var(--slate); font-size: 13px; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 8px; transition: 0.15s; }
+    .btn-clear:hover { background: var(--cream); color: var(--alert); }
+
+    /* ---- output panel ---- */
+    .sign-video-wrap { position: relative; margin: 20px 20px 0; border-radius: 16px; overflow: hidden; background: var(--navy); aspect-ratio: 4 / 3; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+    .sign-video-wrap video { width: 100%; height: 100%; object-fit: cover; display: block; }
+    .sign-video-wrap video.hidden { display: none; }
+    .video-placeholder { color: rgba(252,250,247,0.55); text-align: center; font-size: 13px; line-height: 1.7; padding: 20px; }
+    .video-placeholder i { font-size: 28px; color: var(--teal); display: block; margin-bottom: 8px; }
+    .video-placeholder.hidden { display: none; }
+
+    .sub-stage-label { font-size: 11px; font-weight: 700; color: var(--slate); letter-spacing: 0.04em; padding: 16px 20px 0; }
+
+    .sign-stage { flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 14px; padding: 16px 24px 24px; min-height: 140px; background: radial-gradient(120% 100% at 50% 0%, rgba(43,179,160,0.06) 0%, transparent 60%); }
+    .sign-stage .empty-hint { color: var(--slate); font-size: 14px; text-align: center; line-height: 1.7; }
+    .sign-stage .empty-hint i { font-size: 30px; color: var(--teal); display: block; margin-bottom: 10px; }
+
+    .stage-card { width: 72px; height: 72px; border-radius: 18px; background: var(--navy); color: var(--white); display: flex; align-items: center; justify-content: center; font-family: 'Black Han Sans', sans-serif; font-size: 30px; box-shadow: 0 16px 30px rgba(18,22,43,0.25); transition: transform 0.18s ease, background 0.18s ease; }
+    .stage-card.pulse { transform: scale(1.06); background: var(--teal); }
+    .stage-meta { text-align: center; }
+    .stage-meta .syllable { font-size: 16px; font-weight: 700; color: var(--navy); }
+    .stage-meta .role { font-size: 11px; color: var(--slate); margin-top: 2px; }
+
+    .sign-strip { display: flex; gap: 8px; padding: 16px 20px; overflow-x: auto; border-top: 1px solid rgba(18,22,43,0.06); }
+    .strip-card { flex: 0 0 auto; width: 44px; height: 44px; border-radius: 12px; background: var(--cream); color: var(--navy); display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; transition: 0.15s; }
+    .strip-card.space { background: transparent; width: 18px; }
+    .strip-card.active { background: var(--teal); color: var(--white); transform: translateY(-3px); }
+    .strip-card.done { background: rgba(43,179,160,0.18); }
+
+    .playback-controls { display: flex; align-items: center; gap: 14px; padding: 14px 20px; border-top: 1px solid rgba(18,22,43,0.06); }
+    .btn-play { width: 40px; height: 40px; border-radius: 50%; border: none; background: var(--coral); color: var(--white); font-size: 16px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; transition: 0.2s; }
+    .btn-play:hover { background: #ff805f; }
+    .btn-restart { background: none; border: none; color: var(--slate); font-size: 18px; cursor: pointer; flex-shrink: 0; }
+    .btn-restart:hover { color: var(--navy); }
+    .speed-select { margin-left: auto; font-size: 13px; font-weight: 600; color: var(--navy); background: var(--cream); border: none; border-radius: 8px; padding: 8px 10px; }
+
+    .note-strip { max-width: 1180px; margin: 0 auto 64px; padding: 16px 22px; background: rgba(43,179,160,0.08); border: 1px solid rgba(43,179,160,0.2); border-radius: 14px; color: var(--navy); font-size: 13px; line-height: 1.7; margin-left: 48px; margin-right: 48px; }
+    .note-strip b { color: var(--teal); }
+
+    @media (max-width: 860px) {
+        .translate-wrap { grid-template-columns: 1fr; padding: 0 20px; }
+        .direction-arrow svg { transform: rotate(90deg); }
+        .note-strip { margin-left: 20px; margin-right: 20px; }
+    }
+</style>
+</head>
+<body>
+    <header>
+        <a href="/" class="logo">
+            <span class="logo-mark"><span></span><span></span></span>
+            <span class="logo-text">UNION<small>TEAM ON</small></span>
+        </a>
+        <div class="nav-right">
+            <nav class="nav-links">
+                <ul>
+                    <li><a href="chatentry.html">화상강의</a></li>
+                    <li><a href="translate.html">실시간 번역기</a></li>
+                    <li><a href="education.html">교육</a></li>
+                    <li><a href="/#service-emergency" class="nav-alert"><span class="nav-alert-dot"></span>긴급신고</a></li>
+                </ul>
+            </nav>
+            <a href="#" class="btn-auth">로그인 / 회원가입</a>
+        </div>
+    </header>
+
+    <section class="translate-hero">
+        <span class="eyebrow">TEXT TO SIGN</span>
+        <h1>텍스트를 입력하면, 실시간으로 수어로 보여드려요</h1>
+        <p>등록된 문장은 수어 영상으로, 그 외에는 지문자 카드로 실시간 변환됩니다.</p>
+    </section>
+
+    <div class="translate-wrap">
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title"><span class="dot coral"></span>입력</div>
+                <span class="lang-badge">한국어</span>
+            </div>
+            <textarea id="sourceText" maxlength="200" placeholder="번역할 문장을 입력하세요. 예) 안녕하세요"></textarea>
+            <div class="panel-footer">
+                <span class="char-count"><span id="charCount">0</span> / 200</span>
+                <button type="button" class="btn-clear" id="clearBtn"><i class="bi bi-x-circle"></i> 지우기</button>
+            </div>
+        </div>
+
+        <div class="direction-arrow">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 12h16M13 5l7 7-7 7"/></svg>
+        </div>
+
+        <div class="panel">
+            <div class="panel-header">
+                <div class="panel-title"><span class="dot teal"></span>수어 변환 결과</div>
+                <span class="lang-badge">수어</span>
+            </div>
+            <div class="sign-video-wrap" id="signVideoWrap">
+                <video id="signVideo" playsinline muted loop class="hidden"></video>
+                <div class="video-placeholder" id="videoPlaceholder">
+                    <i class="bi bi-camera-video"></i>
+                    등록된 수어 영상이 없어요<br>아래 지문자로 대신 보여드릴게요
+                </div>
+            </div>
+            <div class="sub-stage-label">지문자 (영상이 없을 때 참고용)</div>
+            <div class="sign-stage" id="signStage">
+                <div class="empty-hint" id="emptyHint">
+                    <i class="bi bi-hand-index-thumb"></i>
+                    왼쪽에 문장을 입력하면<br>여기에 지문자가 순서대로 표시돼요.
+                </div>
+            </div>
+            <div class="sign-strip" id="signStrip"></div>
+            <div class="playback-controls">
+                <button type="button" class="btn-play" id="playBtn"><i class="bi bi-play-fill"></i></button>
+                <button type="button" class="btn-restart" id="restartBtn"><i class="bi bi-arrow-counterclockwise"></i></button>
+                <select class="speed-select" id="speedSelect">
+                    <option value="900">느리게</option>
+                    <option value="550" selected>보통</option>
+                    <option value="300">빠르게</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <div class="note-strip">
+        <b>안내</b> · 입력한 문장이 <code>translate.js</code>의 <code>SIGN_VIDEO_MAP</code>에 등록돼 있으면 사람이 수어하는 영상이 재생되고,
+        등록되지 않은 문장은 초성·중성·종성 지문자로 대신 순서대로 표시됩니다. 영상·이미지 자산은 각각 <code>SIGN_VIDEO_MAP</code> / <code>JAMO_VISUALS</code>
+        매핑 테이블만 채우면 화면 구성 변경 없이 바로 반영됩니다.
+    </div>
+
+    <script src="./static/js/translate.js"></script>
+</body>
+</html>

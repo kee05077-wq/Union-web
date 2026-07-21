@@ -62,7 +62,7 @@ except ModuleNotFoundError as error:
 DATABASE_DIR = PROJECT_DIR / "database"
 WORKBOOK_PATH = DATABASE_DIR / "users.xlsx"
 SHEET_NAME = "Users"
-HTML_FILES = {"index.html", "chatentry.html", "room.html", "story.html", "signup.html", "recover.html"}
+HTML_FILES = {"index.html", "chatentry.html", "room.html", "story.html", "signup.html", "recover.html", "translate.html"}
 
 app = Flask(__name__, static_folder="static", static_url_path="/static")
 app.config['SECRET_KEY'] = 'union-secret-key'
