@@ -1,8 +1,8 @@
-"""
-?? ?? ?? ??.
+﻿"""
+단어 인식 모델 학습.
 
-dataset/sequences/*.npy (? ?? shape: [SEQ_LENGTH, 150], ? ?? = 1?? ?? ?? ??)??
-?? LSTM ???? ???? models/word_model.h5 ? ????.
+dataset/sequences/*.npy (각 파일 shape: [SEQ_LENGTH, 150], 각 파일 = 1개의 단어 동작 샘플)들을
+모아 LSTM 분류기를 학습하고 models/word_model.h5 로 저장한다.
 """
 import sys
 from pathlib import Path
@@ -33,19 +33,19 @@ def load_dataset():
     for npy_path in sorted(SEQUENCE_DIR.glob("*.npy")):
         action = extract_action_from_sequence_name(npy_path)
         if action not in label_index:
-            print(f"??: '{npy_path.name}' ?? ?? '{action}' ? ACTIONS?? ?? ? ?? ?????.")
+            print(f"경고: '{npy_path.name}' 에서 라벨 '{action}' 을 ACTIONS에서 찾을 수 없어 건너뜁니다.")
             continue
         data = np.load(npy_path)  # (SEQ_LENGTH, 150)
         if data.shape != (SEQ_LENGTH, FEATURE_DIM):
-            print(f"??: '{npy_path.name}' shape={data.shape} ? ???? ?? ?????.")
+            print(f"경고: '{npy_path.name}' shape={data.shape} 가 기대값과 달라 건너뜁니다.")
             continue
         sequences.append(data)
         labels.append(label_index[action])
 
     if not sequences:
         raise SystemExit(
-            f"{SEQUENCE_DIR} ? ??? ???? ????. "
-            "build_dataset_from_videos.py ? ?? ?????."
+            f"{SEQUENCE_DIR} 에 학습용 시퀀스가 없습니다. "
+            "build_dataset_from_videos.py 를 먼저 실행하세요."
         )
 
     X = np.array(sequences, dtype=np.float32)
@@ -67,7 +67,7 @@ def build_model(num_classes: int) -> Sequential:
 
 def main():
     X, y = load_dataset()
-    print(f"????: X={X.shape}, y={y.shape}")
+    print(f"데이터셋: X={X.shape}, y={y.shape}")
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.05, random_state=42)
 
@@ -84,11 +84,11 @@ def main():
     )
 
     loss, acc = model.evaluate(X_test, y_test)
-    print(f"\n??? ???: {acc:.4f} (loss={loss:.4f})")
+    print(f"\n테스트 정확도: {acc:.4f} (loss={loss:.4f})")
 
     createDirectory(str(MODEL_DIR))
     model.save(MODEL_PATH)
-    print(f"?? ???: {MODEL_PATH}")
+    print(f"모델 저장됨: {MODEL_PATH}")
 
 
 if __name__ == "__main__":
