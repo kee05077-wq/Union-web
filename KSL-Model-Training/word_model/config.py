@@ -1,10 +1,24 @@
 from pathlib import Path
 
-# 예시 단어 목록 (필요에 따라 자유롭게 추가/수정)
-ACTIONS = ['나는', '맛있다', '고양이', '식사']
+ACTIONS = [
+    "나",
+    "만나다",
+    "반갑다",
+    "밥",
+    "먹다",
+    "의문문 마침",
+    "배",
+    "아프다",
+    "오늘",
+    "날씨",
+    "좋다",
+]
 
-SEQ_LENGTH = 30       # 단어 하나를 표현하는 데 필요한 프레임 수
-FEATURE_DIM = 150     # pose 6점(x,y,z,visibility)=24 + 왼손 21x3=63 + 오른손 21x3=63
+SEQ_LENGTH = 30
+FEATURE_DIM = 150
+DEFAULT_RECORD_SECONDS = 7
+DEFAULT_TAKES = 5
+DEFAULT_TOTAL_PEOPLE = 4
 
 BASE_DIR = Path(__file__).resolve().parent
 VIDEO_DIR = BASE_DIR / "dataset" / "videos"
